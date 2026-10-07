@@ -12,7 +12,7 @@ pg-boss on the same PostgreSQL database (ADR 0002). Jobs: SLA deadline checks, e
 ## Auth
 Auth.js (ADR 0003). Roles: resident, agency_officer, agency_admin, platform_admin.
 
-## Proposed layout (confirm at scaffold time)
+## Layout (confirmed at scaffold, Phase 1)
 ```
 src/app/        routes and UI
 src/domain/     pure domain logic

@@ -5,12 +5,14 @@ Nigerian civic issue reporting and accountability platform. Residents report inf
 Stack: Next.js, TypeScript (strict), PostgreSQL + PostGIS, Drizzle, Auth.js, pg-boss (jobs), Tailwind, Cloudinary, Resend, Termii, Leaflet/OpenStreetMap. Package manager: **pnpm**.
 
 ## Status
-Pre-scaffold: no application code yet. See `docs/roadmap.md`.
+Phase 1 scaffold done; no domain code yet. See `docs/roadmap.md`.
 
-## Commands (update once scaffolded)
+## Commands
 - `pnpm dev` / `pnpm build`
 - `pnpm lint` / `pnpm typecheck` / `pnpm test`
+- `pnpm db:up` / `pnpm db:down` (local Postgres+PostGIS via Docker, ADR 0004)
 - `pnpm db:generate` / `pnpm db:migrate` (Drizzle)
+- Integration tests need `DATABASE_URL` and `TEST_DATABASE_URL` set (see README).
 
 ## Non-negotiables
 - Never edit an applied migration; add a new one.

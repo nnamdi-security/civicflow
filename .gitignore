@@ -4,3 +4,10 @@ node_modules/
 .env.*
 !.env.example
 .claude/settings.local.json
+
+# build/test output
+/coverage
+/out/
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store

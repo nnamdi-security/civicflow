@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: civicflow-db
+    environment:
+      POSTGRES_USER: civicflow
+      POSTGRES_PASSWORD: civicflow_dev_only
+      POSTGRES_DB: civicflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - civicflow-pgdata:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civicflow -d civicflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  civicflow-pgdata:
