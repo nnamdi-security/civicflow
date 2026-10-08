@@ -1,6 +1,6 @@
 /**
  * Report statuses from docs/domain-model.md. Transitions between them belong to the state
- * machine (Phase 4); Phase 3 only creates reports in the initial status.
+ * machine in `transitions.ts`.
  */
 export const REPORT_STATUSES = [
   "submitted",

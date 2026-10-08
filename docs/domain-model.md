@@ -21,7 +21,7 @@ Also: `resolved → disputed → in_progress` (reopen), `* → rejected` (invali
 Every transition is validated in the domain layer and writes a StatusEvent. Transition table lives in code and is tested exhaustively.
 
 Who may perform each transition:
-- `submitted → routed`: system (routing), or a platform/agency admin via reassignment.
+- `submitted → routed`: system (routing) or a platform admin triaging. Agency admins cannot, since an unrouted report has no agency.
 - `routed → acknowledged`, `acknowledged → in_progress`, `in_progress → resolved`: staff of the assigned agency (or a platform admin).
 - `* → rejected`: agency staff of the assigned agency or a platform admin; a reason is required. Not allowed from `confirmed` or `rejected`.
 - `resolved → confirmed`, `resolved → disputed`: the reporting resident only (UI in Phase 7).
