@@ -89,10 +89,47 @@ describe("who may transition", () => {
     expect([ok(officer), ok(reporter)]).toEqual([false, false]);
   });
 
-  it.each(["confirmed", "disputed"] as const)("lets only the reporter move resolved -> %s", (to) => {
-    const ok = (actor: TransitionActor) => validateTransition({ from: "resolved", to, actor, reportAgencyId: AGENCY }).ok;
+  it.each(["confirmed", "disputed"] as const)("lets only the reporter move resolved -> %s (with a note to dispute)", (to) => {
+    const ok = (actor: TransitionActor) =>
+      validateTransition({ from: "resolved", to, actor, reportAgencyId: AGENCY, reason: "still broken" }).ok;
     expect(ok(reporter)).toBe(true);
-    expect([ok(stranger), ok(officer), ok(platformAdmin), ok(system)]).toEqual([false, false, false, false]);
+    expect([ok(stranger), ok(officer), ok(platformAdmin)]).toEqual([false, false, false]);
+  });
+
+  it("lets the system confirm a resolved report, but never dispute one", () => {
+    const system$ = (to: "confirmed" | "disputed") =>
+      validateTransition({ from: "resolved", to, actor: system, reportAgencyId: AGENCY, reason: "auto-confirmed after 14 days" });
+    expect(system$("confirmed")).toMatchObject({ ok: true, to: "confirmed", reason: "auto-confirmed after 14 days" });
+    expect(system$("disputed")).toEqual({ ok: false, denial: "forbidden" });
+  });
+
+  it("does not let the system confirm from any other status", () => {
+    for (const from of REPORT_STATUSES.filter((s) => s !== "resolved")) {
+      expect(validateTransition({ from, to: "confirmed", actor: system, reportAgencyId: AGENCY }).ok).toBe(false);
+    }
+  });
+});
+
+describe("dispute note", () => {
+  const dispute = (reason?: string | null) =>
+    validateTransition({ from: "resolved", to: "disputed", actor: reporter, reportAgencyId: AGENCY, reason });
+
+  it("is required", () => {
+    expect(dispute(undefined)).toEqual({ ok: false, denial: "reason_required" });
+    expect(dispute("   ")).toEqual({ ok: false, denial: "reason_required" });
+  });
+
+  it("accepts a note exactly at the length limit and rejects one over it", () => {
+    expect(dispute("a".repeat(MAX_REASON_LENGTH)).ok).toBe(true);
+    expect(dispute("a".repeat(MAX_REASON_LENGTH + 1))).toEqual({ ok: false, denial: "reason_required" });
+  });
+
+  it("is trimmed", () => {
+    expect(dispute("  still a hole  ")).toMatchObject({ ok: true, reason: "still a hole" });
+  });
+
+  it("is not needed to confirm", () => {
+    expect(validateTransition({ from: "resolved", to: "confirmed", actor: reporter, reportAgencyId: AGENCY }).ok).toBe(true);
   });
 });
 

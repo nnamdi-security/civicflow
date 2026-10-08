@@ -73,6 +73,8 @@ function mayPerform(req: TransitionRequest): boolean {
   if (to === "rejected") return isStaffFor(actor, reportAgencyId);
   if (from === "submitted" && to === "routed") return actor.kind === "system" || isPlatformAdmin(actor);
   if (from === "resolved" && (to === "confirmed" || to === "disputed")) {
+    // Only the reporter can dispute; the system may confirm, after the auto-confirm period (auto-confirm.ts).
+    if (to === "confirmed" && actor.kind === "system") return true;
     return actor.kind === "user" && actor.isReporter;
   }
   return isStaffFor(actor, reportAgencyId);
@@ -87,7 +89,8 @@ export function validateTransition(req: TransitionRequest): TransitionResult {
   if (!mayPerform(req)) return { ok: false, denial: "forbidden" };
 
   const reason = req.reason?.trim() ? req.reason.trim() : null;
-  if (req.to === "rejected" && (reason === null || reason.length > MAX_REASON_LENGTH)) {
+  // Rejecting and disputing both need a note, so the person on the other side knows why.
+  if ((req.to === "rejected" || req.to === "disputed") && (reason === null || reason.length > MAX_REASON_LENGTH)) {
     return { ok: false, denial: "reason_required" };
   }
   return { ok: true, from: req.from, to: req.to, reason };

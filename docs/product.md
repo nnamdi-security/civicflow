@@ -24,7 +24,7 @@ Reporting, routing, SLA timers, escalation, notifications (email + SMS), public 
 Native mobile apps, payments, public analytics dashboards, AI triage.
 
 ## Decisions
-- Public tracking shows category, status, agency, area name and timeline only: no description, photos, exact location or reporter (ADR 0013). The public overdue board is off until real SLA values are agreed.
+- Public tracking shows category, status, agency, area name and timeline only (plus deadlines and overdue labels once the overdue switch is on): no description, photos, exact location or reporter (ADR 0013). The public overdue board is off until real SLA values are agreed.
 - Reporting requires sign-in, with one to three photos per report (ADR 0007).
 
 ## Open questions

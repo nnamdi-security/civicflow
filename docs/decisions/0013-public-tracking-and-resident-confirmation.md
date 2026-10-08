@@ -7,7 +7,7 @@ Status: Accepted
 
 **Lookups are rate limited** per client address (keyed hash) and the tracking pages are `noindex`. Unknown references answer 404, the same as any other miss.
 
-**The public overdue board (`/overdue`) is built but off by default.** It is enabled by `PUBLIC_OVERDUE_BOARD=true`. It lists reports at escalation level 3 with agency, category, area and days overdue. It stays off until real SLA values are agreed, because naming agencies publicly on placeholder deadlines (ADR 0010) is a reputational risk. Deadlines appear on the public tracking page only when the same switch is on; the resident's own page always shows them.
+**The public overdue board (`/overdue`) is built but off by default.** It is enabled by `PUBLIC_OVERDUE_BOARD=true`. It lists reports at escalation level 3 with agency, category, area and days overdue. It stays off until real SLA values are agreed, because naming agencies publicly on placeholder deadlines (ADR 0010) is a reputational risk. Deadlines, overdue labels and the public overdue flag appear on the public tracking page only when the same switch is on, since they all rest on the placeholder SLA values; the resident's own page always shows them.
 
 **Resident confirmation** uses the existing state machine: the reporter moves `resolved` to `confirmed` or `disputed`. A dispute requires a note, so the agency knows what is wrong. A report still `resolved` 14 days after it was resolved is confirmed automatically by the system, with the reason "auto-confirmed after 14 days". The 14 days is **provisional**, like the SLA values.
 
