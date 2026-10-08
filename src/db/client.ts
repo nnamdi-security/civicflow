@@ -8,3 +8,6 @@ export function createDb(connectionString: string) {
 }
 
 export type Db = ReturnType<typeof createDb>["db"];
+
+/** The handle passed to `db.transaction(async (tx) => ...)`. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
