@@ -5,9 +5,9 @@ import type { Db } from "../../db/client";
 import { accounts, sessions, users, verificationTokens } from "../../db/schema";
 import { signInEmail, type EmailSender } from "../adapters/email";
 import { rateLimitKey, type RateLimiter } from "../rate-limit/rate-limiter";
+import { SIGN_IN_LINK_MAX_AGE_SECONDS } from "./constants";
 import { toSessionUser } from "./session-user";
 
-export const SIGN_IN_LINK_MAX_AGE_SECONDS = 15 * 60;
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 /** Per-address cap on sign-in emails. Applies to every path that triggers a send. */

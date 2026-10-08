@@ -1,0 +1,1 @@
+export const SIGN_IN_LINK_MAX_AGE_SECONDS = 15 * 60;
