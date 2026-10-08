@@ -2,13 +2,18 @@
 
 ## Entities (draft)
 - **Report** — category, description, location, status, reporter, assigned agency, timestamps.
-- **Agency** — name, type, contacts, jurisdiction(s).
+- **User** — email (lowercase, unique), role, optional agency. Implemented (Phase 2).
+- **Agency** — name, type (roads, drainage, water, power, waste, streetlights), contacts, jurisdiction(s). Implemented without contacts.
 - **Category** — name, default agency type, SLA policy.
-- **Jurisdiction** — administrative boundary (state/LGA) as a PostGIS polygon.
+- **Jurisdiction** — administrative boundary (state/LGA) as a PostGIS polygon, with an optional parent. Implemented (Phase 2).
+- **AgencyJurisdiction** — which jurisdictions an agency covers, with a priority (lower wins routing ties). Implemented (Phase 2).
 - **Assignment** — report-to-agency link with history (reassignments).
 - **StatusEvent** — append-only log of every status change (actor, from, to, reason, time).
 - **Confirmation** — resident verdict on a resolution (confirmed/disputed, note).
 - **Media** — Cloudinary asset references for a report.
+
+## Roles and agency scope
+Roles: `resident`, `agency_officer`, `agency_admin`, `platform_admin` (`src/domain/roles.ts`). Agency roles belong to exactly one agency; other roles to none. This is enforced both in the domain (`isConsistentTarget`) and by the `users_agency_scope` database constraint. Policy functions live in `src/domain/permissions.ts` and are the only place role rules are written; repositories apply `agencyScopeFor(actor)` inside queries. Sign-in and sessions: ADR 0005.
 
 ## Status state machine (draft)
 `submitted → routed → acknowledged → in_progress → resolved → confirmed`
