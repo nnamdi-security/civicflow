@@ -16,6 +16,12 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 - Retention period and deletion process: TBD.
 - Treat photo EXIF and precise home-adjacent locations as sensitive.
 
+## Notifications and phone numbers (Phase 6)
+- A phone number is personal data. It is stored only after the user adds it, is used for SMS only after verification by a texted code (hashed, expiring, attempt-limited), and can be removed at any time (ADR 0012).
+- Notification rows hold ids, channel, status and error codes only. Message bodies, addresses and phone numbers are never stored in them or written to logs (ADR 0011).
+- Messages carry the reference code and a link, never the description or the location.
+- Residents can switch off their report emails and SMS. Staff escalation emails are operational and cannot be switched off.
+
 ## Anonymous reporting
 Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR if sign-in proves a barrier; anonymous reporting would need a CAPTCHA-style control and token-based tracking.
 

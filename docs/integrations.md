@@ -12,10 +12,27 @@ Not yet exercised against a live Cloudinary account: real uploads, the metadata-
 ## Resend (email)
 Transactional only: sign-in link, report received, acknowledged, resolved, escalated. Templates versioned in code.
 
-Adapter: `src/server/adapters/email/` (`EmailSender` interface, `ResendEmailSender`, `FakeEmailSender`). Sign-in links are sent synchronously and not retried; report notifications (Phase 6) go through pg-boss. In local dev without `RESEND_API_KEY`, messages are written to the gitignored `.dev-outbox/` (never logged); read the latest with `pnpm dev:last-email`. Production refuses to start without Resend configured (ADR 0005).
+Adapter: `src/server/adapters/email/` (`EmailSender` interface, `ResendEmailSender`, `FakeEmailSender`). Sign-in links are sent synchronously and not retried; report notifications go through the notification outbox and the worker's dispatcher (ADR 0011). In local dev without `RESEND_API_KEY`, messages are written to the gitignored `.dev-outbox/` (never logged); read the latest with `pnpm dev:last-email`. Production refuses to start without Resend configured (ADR 0005).
 
 ## Termii (SMS)
 Nigerian numbers in E.164 (+234). Sender ID registration required. Respect DND routes and opt-out. SMS is more expensive than email: reserve for key events.
+
+Consent, verification and which events send SMS: ADR 0012. Delivery path: ADR 0011. Adapter: `src/server/adapters/sms/` (`SmsSender` interface, Termii, dev outbox, fake). Not yet exercised against a live Termii account or a live Resend domain: sender ID approval, DND routing, delivery reports and SPF/DKIM must be checked before launch.
+
+## Notifications (Phase 6)
+Templates live in code and are versioned; messages carry the reference code and a link, never the description or location. Events and recipients:
+
+| Event | Email | SMS |
+|---|---|---|
+| Report received | resident | none |
+| Sent to agency | resident | none |
+| Acknowledged | resident | none |
+| Resolved | resident | resident |
+| Rejected | resident | none |
+| Disputed | agency admins | none |
+| Escalation level 1 | agency admins | none |
+| Escalation level 2 | platform admins | none |
+| Escalation level 3 (publicly overdue) | resident | resident |
 
 ## Leaflet / OpenStreetMap
 Client-only component (`src/components/map-picker.tsx`, loaded with `ssr: false`). Follow the OSM tile usage policy (attribution is shown); plan to move to a tile provider before significant traffic. Default map view: Nigeria. The pin uses a custom icon because Leaflet's default marker images are not resolved by bundlers. The report form also offers "use my location" and typed latitude/longitude as accessible alternatives to the map.
