@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Db } from "../../db/client";
+import type { Clock } from "../../domain/clock";
 import { REPORT_STATUSES, type ReportStatus } from "../../domain/reports/status";
 import { MAX_REASON_LENGTH, validateTransition, type TransitionActor } from "../../domain/reports/transitions";
 import { UnauthenticatedError } from "../auth/errors";
@@ -8,6 +9,7 @@ import { applyStatusChange, findReportForWorkflow, type WorkflowReport } from ".
 
 export interface ChangeStatusDeps {
   db: Db;
+  clock: Clock;
 }
 
 /** `routed` is reached only by routing or reassignment, never by a plain status change. */
@@ -66,13 +68,11 @@ export async function changeReportStatus(
   if (!check.ok) return { ok: false, reason: check.denial };
 
   const applied = await deps.db.transaction((tx) =>
-    applyStatusChange(tx, {
-      reportId: report.id,
-      from: check.from,
-      to: check.to,
-      actorId: actor.userId,
-      reason: check.reason,
-    }),
+    applyStatusChange(
+      tx,
+      { reportId: report.id, from: check.from, to: check.to, actorId: actor.userId, reason: check.reason },
+      deps.clock,
+    ),
   );
   return applied ? { ok: true, status: check.to } : { ok: false, reason: "conflict" };
 }

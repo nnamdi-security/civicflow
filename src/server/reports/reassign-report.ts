@@ -58,15 +58,18 @@ export async function reassignReport(
 
   const reason = input.reason ? `reassigned: ${input.reason}` : "reassigned";
   const applied = await deps.db.transaction(async (tx) => {
-    const moved = await applyStatusChange(tx, {
-      reportId: report.id,
-      from: check.from,
-      to: check.to,
-      actorId: actor.userId,
-      reason,
-      agencyId: input.agencyId,
-      markRouted: { at: deps.clock.now() },
-    });
+    const moved = await applyStatusChange(
+      tx,
+      {
+        reportId: report.id,
+        from: check.from,
+        to: check.to,
+        actorId: actor.userId,
+        reason,
+        agencyId: input.agencyId,
+      },
+      deps.clock,
+    );
     if (!moved) return false;
     await insertAssignment(tx, {
       reportId: report.id,

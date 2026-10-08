@@ -32,7 +32,8 @@ import { resetReports, setupTestDb } from "./test-db";
 let conn: Awaited<ReturnType<typeof setupTestDb>>;
 let deps: CreateReportDeps;
 let media: FakeMediaStorage;
-const clock = fixedClock(new Date("2026-03-01T09:00:00Z"));
+const START = new Date("2026-03-01T09:00:00Z");
+let clock = fixedClock(START);
 
 let stateId: string;
 let agencyA: string;
@@ -64,6 +65,7 @@ async function wipe() {
 }
 
 beforeEach(async () => {
+  clock = fixedClock(START);
   await wipe();
   const [state] = await conn.db
     .insert(jurisdictions)
@@ -142,6 +144,17 @@ async function submit(point = IN_COVERAGE, as: AuthenticatedActor = resident) {
 }
 
 const to = (reportId: string, status: string, reason?: string) => ({ reportId, to: status, reason });
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+const timersOf = async (id: string) => {
+  const [row] = await conn.db
+    .select({ ack: reports.ackDueAt, resolve: reports.resolveDueAt, cycle: reports.slaCycle })
+    .from(reports)
+    .where(eq(reports.id, id));
+  if (!row) throw new Error("report missing");
+  return row;
+};
+const after = (ms: number) => new Date(clock.now().getTime() + ms);
 const statusOf = async (id: string) =>
   (await conn.db.select({ s: reports.status }).from(reports).where(eq(reports.id, id)))[0]?.s;
 
@@ -180,6 +193,68 @@ describe("routing at submission", () => {
     expect(report).toMatchObject({ status: "submitted", agencyId: null, routedAt: null });
     expect(await conn.db.select().from(assignments)).toHaveLength(0);
     expect((await listTriageReports(conn.db)).map((r) => r.id)).toEqual([id]);
+  });
+});
+
+describe("SLA timers through the workflow (roads: 24 h to acknowledge, 14 days to resolve)", () => {
+  it("starts both timers at routing and leaves none running for a triaged report", async () => {
+    const routed = await submit();
+    expect(await timersOf(routed)).toEqual({ ack: after(DAY), resolve: after(14 * DAY), cycle: 1 });
+    const triaged = await submit(OUTSIDE);
+    expect(await timersOf(triaged)).toEqual({ ack: null, resolve: null, cycle: 0 });
+  });
+
+  it("stops acknowledgement on acknowledge and keeps the resolve deadline", async () => {
+    const id = await submit();
+    const { resolve } = await timersOf(id);
+    clock.advance(3 * HOUR);
+    await changeReportStatus(deps, officerA, to(id, "acknowledged"));
+    expect(await timersOf(id)).toEqual({ ack: null, resolve, cycle: 1 });
+    await changeReportStatus(deps, officerA, to(id, "in_progress"));
+    expect(await timersOf(id)).toEqual({ ack: null, resolve, cycle: 1 });
+  });
+
+  it("stops everything on resolved, and on rejection", async () => {
+    const id = await resolvedReport();
+    expect(await timersOf(id)).toEqual({ ack: null, resolve: null, cycle: 1 });
+    const other = await submit();
+    await changeReportStatus(deps, officerA, to(other, "rejected", "not a civic issue"));
+    expect(await timersOf(other)).toEqual({ ack: null, resolve: null, cycle: 1 });
+  });
+
+  it("restarts only the resolve timer, in a new cycle, when the resident disputes", async () => {
+    const id = await resolvedReport();
+    clock.advance(2 * DAY);
+    await changeReportStatus(deps, resident, to(id, "disputed", "still broken"));
+    const disputed = { ack: null, resolve: after(14 * DAY), cycle: 2 };
+    expect(await timersOf(id)).toEqual(disputed);
+    // Reopening does not restart it a second time.
+    clock.advance(DAY);
+    await changeReportStatus(deps, officerA, to(id, "in_progress"));
+    expect(await timersOf(id)).toEqual(disputed);
+  });
+
+  it("restarts both timers in a new cycle on reassignment", async () => {
+    const id = await submit();
+    await changeReportStatus(deps, officerA, to(id, "acknowledged"));
+    clock.advance(10 * HOUR);
+    await reassignReport({ db: conn.db, clock }, adminA, { reportId: id, agencyId: agencyB });
+    expect(await timersOf(id)).toEqual({ ack: after(DAY), resolve: after(14 * DAY), cycle: 2 });
+  });
+
+  it("starts timers when a platform admin routes a triaged report", async () => {
+    const id = await submit(OUTSIDE);
+    clock.advance(5 * HOUR);
+    await reassignReport({ db: conn.db, clock }, platform, { reportId: id, agencyId: agencyB });
+    expect(await timersOf(id)).toEqual({ ack: after(DAY), resolve: after(14 * DAY), cycle: 1 });
+  });
+
+  it("keeps the first routed_at across reassignment", async () => {
+    const id = await submit();
+    clock.advance(DAY);
+    await reassignReport({ db: conn.db, clock }, adminA, { reportId: id, agencyId: agencyB });
+    const [row] = await conn.db.select({ routedAt: reports.routedAt }).from(reports).where(eq(reports.id, id));
+    expect(row?.routedAt).toEqual(START);
   });
 });
 

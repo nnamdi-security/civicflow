@@ -1,8 +1,10 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Db, Tx } from "../../db/client";
-import { agencies, assignments, categories, reportMedia, reports, statusEvents } from "../../db/schema";
+import { agencies, assignments, categories, reportMedia, reports, slaPolicies, statusEvents } from "../../db/schema";
+import type { Clock } from "../../domain/clock";
 import type { AgencyScope } from "../../domain/permissions";
 import type { ReportStatus } from "../../domain/reports/status";
+import { timersAfterEntering, type SlaPolicy } from "../../domain/sla";
 
 export interface WorkflowReport {
   id: string;
@@ -30,25 +32,55 @@ export interface StatusChange {
   reason: string | null;
   /** Set when the change also (re)assigns the report. */
   agencyId?: string;
-  /** Stamp `routed_at` the first time the report is routed. */
-  markRouted?: { at: Date };
+}
+
+export async function findSlaPolicy(db: Db | Tx, categoryId: string): Promise<SlaPolicy | null> {
+  const [row] = await db
+    .select({ ackMinutes: slaPolicies.ackMinutes, resolveMinutes: slaPolicies.resolveMinutes })
+    .from(slaPolicies)
+    .where(eq(slaPolicies.categoryId, categoryId))
+    .limit(1);
+  return row ?? null;
 }
 
 /**
- * Compare-and-set status change plus its StatusEvent. Returns false when the report is no
- * longer in `from` (someone else moved it first), writing nothing. Call inside a transaction.
+ * Compare-and-set status change plus its StatusEvent, with the SLA timers that go with it
+ * (docs/sla-and-escalation.md). The report row is locked first, so the timers are computed
+ * from the state the change really applies to. Returns false when the report is no longer in
+ * `from` (someone else moved it first), writing nothing. Call inside a transaction.
  */
-export async function applyStatusChange(tx: Tx, change: StatusChange): Promise<boolean> {
-  const updated = await tx
+export async function applyStatusChange(tx: Tx, change: StatusChange, clock: Clock): Promise<boolean> {
+  const [current] = await tx
+    .select({
+      status: reports.status,
+      categoryId: reports.categoryId,
+      ackDueAt: reports.ackDueAt,
+      resolveDueAt: reports.resolveDueAt,
+      slaCycle: reports.slaCycle,
+    })
+    .from(reports)
+    .where(eq(reports.id, change.reportId))
+    .for("update");
+  if (!current || current.status !== change.from) return false;
+
+  const policy = await findSlaPolicy(tx, current.categoryId);
+  // A category without a policy cannot start timers; fail loudly instead of leaving a report untimed.
+  if (!policy && (change.to === "routed" || change.to === "disputed")) {
+    throw new Error("No SLA policy for the report's category");
+  }
+  const timers = timersAfterEntering(change.to, current, policy ?? { ackMinutes: 0, resolveMinutes: 0 }, clock);
+
+  await tx
     .update(reports)
     .set({
       status: change.to,
       ...(change.agencyId ? { agencyId: change.agencyId } : {}),
-      ...(change.markRouted ? { routedAt: sql`coalesce(${reports.routedAt}, ${change.markRouted.at})` } : {}),
+      ...(change.to === "routed" ? { routedAt: sql`coalesce(${reports.routedAt}, ${clock.now()})` } : {}),
+      ackDueAt: timers.ackDueAt,
+      resolveDueAt: timers.resolveDueAt,
+      slaCycle: timers.slaCycle,
     })
-    .where(and(eq(reports.id, change.reportId), eq(reports.status, change.from)))
-    .returning({ id: reports.id });
-  if (updated.length === 0) return false;
+    .where(eq(reports.id, change.reportId));
 
   await tx.insert(statusEvents).values({
     reportId: change.reportId,

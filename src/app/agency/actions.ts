@@ -25,7 +25,7 @@ export async function changeStatusAction(formData: FormData): Promise<void> {
   const reportId = idSchema.safeParse(text(formData, "reportId"));
   if (!reportId.success) redirect("/agency");
 
-  const result = await changeReportStatus({ db: getDb() }, actor, {
+  const result = await changeReportStatus({ db: getDb(), clock: systemClock }, actor, {
     reportId: reportId.data,
     to: text(formData, "to"),
     reason: text(formData, "reason"),

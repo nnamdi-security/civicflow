@@ -25,15 +25,11 @@ export async function routeNewReport(tx: Tx, clock: Clock, reportId: string): Pr
   });
   if (!check.ok) throw new Error(`Routing transition rejected: ${check.denial}`);
 
-  const applied = await applyStatusChange(tx, {
-    reportId,
-    from: "submitted",
-    to: "routed",
-    actorId: null,
-    reason,
-    agencyId: decision.agencyId,
-    markRouted: { at: clock.now() },
-  });
+  const applied = await applyStatusChange(
+    tx,
+    { reportId, from: "submitted", to: "routed", actorId: null, reason, agencyId: decision.agencyId },
+    clock,
+  );
   if (!applied) return { routed: false };
 
   await insertAssignment(tx, { reportId, agencyId: decision.agencyId, assignedBy: null, reason });
