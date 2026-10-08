@@ -3,3 +3,4 @@ export * from "./auth";
 export * from "./postgis";
 export * from "./rate-limits";
 export * from "./reports";
+export * from "./notifications";

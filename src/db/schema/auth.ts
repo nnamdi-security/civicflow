@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -28,10 +29,20 @@ export const users = pgTable(
     image: text("image"),
     role: roleEnum("role").notNull().default("resident"),
     agencyId: uuid("agency_id").references(() => agencies.id),
+    /** Verified-or-pending mobile number in E.164 (ADR 0012). Personal data. */
+    phoneE164: text("phone_e164"),
+    phoneVerifiedAt: timestamptz("phone_verified_at"),
+    /** Residents can switch off their report emails; staff escalation emails ignore this. */
+    notifyEmail: boolean("notify_email").notNull().default(true),
+    /** Only possible with a verified phone. */
+    notifySms: boolean("notify_sms").notNull().default(false),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
   },
   (table) => [
     index("users_agency_idx").on(table.agencyId),
+    check("users_phone_format", sql`${table.phoneE164} is null or ${table.phoneE164} ~ '^\\+234[789][0-9]{9}$'`),
+    check("users_phone_verified_needs_phone", sql`${table.phoneVerifiedAt} is null or ${table.phoneE164} is not null`),
+    check("users_sms_needs_verified_phone", sql`not ${table.notifySms} or ${table.phoneVerifiedAt} is not null`),
     // Agency staff belong to exactly one agency; other roles belong to none.
     check(
       "users_agency_scope",
@@ -85,3 +96,15 @@ export const verificationTokens = pgTable(
   },
   (table) => [primaryKey({ columns: [table.identifier, table.token] })],
 );
+
+/** One pending phone verification per user. The code is stored hashed, never in clear (ADR 0012). */
+export const phoneVerifications = pgTable("phone_verifications", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  phoneE164: text("phone_e164").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: timestamptz("expires_at").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: timestamptz("created_at").notNull().defaultNow(),
+});

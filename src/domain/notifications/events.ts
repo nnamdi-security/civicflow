@@ -14,6 +14,9 @@ export const NOTIFICATION_EVENTS = [
 ] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 
+export const NOTIFICATION_STATUSES = ["pending", "sent", "failed", "skipped"] as const;
+export type NotificationStatus = (typeof NOTIFICATION_STATUSES)[number];
+
 export const NOTIFICATION_CHANNELS = ["email", "sms"] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 

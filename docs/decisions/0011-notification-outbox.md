@@ -5,7 +5,7 @@ Status: Accepted
 ## Decision
 Notifications are rows in a `notifications` table, inserted in the same database transaction as the change that causes them (report created, status changed, escalation recorded). A recurring pg-boss job in the worker claims due rows with `FOR UPDATE SKIP LOCKED`, sends them through the email and SMS adapters, and records the outcome on the row. A failed send is retried with backoff (1, 5, 30 and 120 minutes), then marked `failed`.
 
-Each row is unique on report, event, recipient, channel and SLA cycle, with `ON CONFLICT DO NOTHING`, so a repeated trigger never queues a second message. Rows hold ids, channel, status, attempt count and a short error code. They never hold message bodies, email addresses or phone numbers; recipients are resolved from the user row at send time.
+There is one row per recipient user and channel, so retrying one person's failed message never re-sends to the others. Each row is unique on report, event, recipient, channel, SLA cycle and a discriminator (the timer, for escalations), with `ON CONFLICT DO NOTHING`, so a repeated trigger never queues a second message. Rows hold ids, channel, status, attempt count and a short error code. They never hold message bodies, email addresses or phone numbers; contact details are read from the user row at send time.
 
 Delivery is at-least-once. Resend is given the row's dedupe key as an idempotency key. Termii has no equivalent, so a crash between a successful send and recording it could send one SMS twice.
 
