@@ -51,6 +51,44 @@ export function parseMediaEnv(raw: Record<string, string | undefined>): MediaEnv
   return parseWith(mediaEnvSchema, raw);
 }
 
+const emailEnvSchema = z
+  .object({
+    RESEND_API_KEY: z.string().min(1).optional(),
+    EMAIL_FROM: z.string().min(3).optional(),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  })
+  .refine((env) => env.RESEND_API_KEY === undefined || env.EMAIL_FROM !== undefined, {
+    path: ["EMAIL_FROM"],
+    message: "required when RESEND_API_KEY is set",
+  });
+
+/** What the email sender needs; the worker has no AUTH_SECRET, so it cannot use AuthEnv. */
+export type EmailEnv = z.infer<typeof emailEnvSchema>;
+
+export function parseEmailEnv(raw: Record<string, string | undefined>): EmailEnv {
+  return parseWith(emailEnvSchema, raw);
+}
+
+const appEnvSchema = z
+  .object({
+    AUTH_URL: z.url().optional(),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  })
+  .transform((env, ctx) => {
+    if (env.AUTH_URL === undefined && env.NODE_ENV === "production") {
+      ctx.addIssue({ code: "custom", path: ["AUTH_URL"], message: "required in production" });
+      return z.NEVER;
+    }
+    return { baseUrl: env.AUTH_URL ?? "http://localhost:3000" };
+  });
+
+/** The public base URL used in message links. */
+export type AppEnv = z.infer<typeof appEnvSchema>;
+
+export function parseAppEnv(raw: Record<string, string | undefined>): AppEnv {
+  return parseWith(appEnvSchema, raw);
+}
+
 const smsEnvSchema = z
   .object({
     TERMII_API_KEY: z.string().min(1).optional(),

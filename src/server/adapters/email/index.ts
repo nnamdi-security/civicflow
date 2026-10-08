@@ -1,4 +1,4 @@
-import type { AuthEnv } from "../../env";
+import type { EmailEnv } from "../../env";
 import { DevOutboxEmailSender } from "./dev-outbox-email-sender";
 import type { EmailSender } from "./email-sender";
 import { ResendEmailSender } from "./resend-email-sender";
@@ -9,7 +9,7 @@ export { FakeEmailSender } from "./fake-email-sender";
 export { signInEmail } from "./templates/sign-in";
 
 /** Resend when configured; the dev outbox outside production; otherwise a hard failure. */
-export function createEmailSender(env: AuthEnv): EmailSender {
+export function createEmailSender(env: EmailEnv): EmailSender {
   if (env.RESEND_API_KEY !== undefined && env.EMAIL_FROM !== undefined) {
     return new ResendEmailSender({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM });
   }

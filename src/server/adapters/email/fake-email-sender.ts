@@ -1,19 +1,18 @@
-import type { EmailMessage, EmailSender } from "./email-sender";
+import { EmailDeliveryError, type EmailMessage, type EmailSender } from "./email-sender";
 
 /** In-memory fake for tests. */
 export class FakeEmailSender implements EmailSender {
   readonly sent: EmailMessage[] = [];
-  private failNext = false;
+  private failures: Array<{ retryable: boolean }> = [];
 
-  failOnNextSend(): void {
-    this.failNext = true;
+  /** The next send fails; retryable by default, like a provider outage. */
+  failOnNextSend(options: { retryable?: boolean } = {}): void {
+    this.failures.push({ retryable: options.retryable ?? true });
   }
 
   async send(message: EmailMessage): Promise<void> {
-    if (this.failNext) {
-      this.failNext = false;
-      throw new Error("fake email failure");
-    }
+    const failure = this.failures.shift();
+    if (failure) throw new EmailDeliveryError("fake email failure", failure.retryable);
     this.sent.push(message);
   }
 }

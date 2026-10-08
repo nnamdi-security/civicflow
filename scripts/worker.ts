@@ -1,6 +1,10 @@
 import { PgBoss } from "pg-boss";
 import { createDb } from "../src/db/client";
 import { systemClock } from "../src/domain/clock";
+import { createEmailSender } from "../src/server/adapters/email";
+import { createSmsSender } from "../src/server/adapters/sms";
+import { parseAppEnv, parseEmailEnv, parseSmsEnv } from "../src/server/env";
+import { registerNotificationDispatch } from "../src/server/jobs/notification-dispatch-job";
 import { registerSlaScan } from "../src/server/jobs/sla-scan-job";
 
 // Usage: pnpm worker   (needs DATABASE_URL). A long-running process: run exactly where the app can reach the database.
@@ -20,7 +24,23 @@ async function main() {
       if (result.recorded > 0) console.log(`SLA scan recorded ${result.recorded} escalation(s)`);
     },
   });
-  console.log("Worker started: SLA scan runs every minute.");
+  const sms = createSmsSender(parseSmsEnv(process.env));
+  await registerNotificationDispatch(boss, {
+    db,
+    clock: systemClock,
+    email: createEmailSender(parseEmailEnv(process.env)),
+    sms,
+    baseUrl: parseAppEnv(process.env).baseUrl,
+    onDispatch: (result) => {
+      const total = result.sent + result.retrying + result.failed + result.skipped;
+      if (total > 0) {
+        console.log(
+          `Notifications: ${result.sent} sent, ${result.retrying} retrying, ${result.failed} failed, ${result.skipped} skipped`,
+        );
+      }
+    },
+  });
+  console.log(`Worker started: SLA scan and notification dispatch run every minute${sms ? "" : " (SMS disabled)"}.`);
 
   const shutdown = async () => {
     await boss.stop();
