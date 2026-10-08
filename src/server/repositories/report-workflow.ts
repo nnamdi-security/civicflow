@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Db, Tx } from "../../db/client";
-import { agencies, assignments, categories, reports, statusEvents } from "../../db/schema";
+import { agencies, assignments, categories, reportMedia, reports, statusEvents } from "../../db/schema";
 import type { AgencyScope } from "../../domain/permissions";
 import type { ReportStatus } from "../../domain/reports/status";
 
@@ -200,4 +200,12 @@ export async function listStatusHistory(db: Db, reportId: string): Promise<Statu
     .from(statusEvents)
     .where(eq(statusEvents.reportId, reportId))
     .orderBy(asc(statusEvents.createdAt), asc(statusEvents.id));
+}
+
+export async function listReportPhotos(db: Db, reportId: string) {
+  return db
+    .select({ publicId: reportMedia.publicId, width: reportMedia.width, height: reportMedia.height })
+    .from(reportMedia)
+    .where(eq(reportMedia.reportId, reportId))
+    .orderBy(asc(reportMedia.position));
 }

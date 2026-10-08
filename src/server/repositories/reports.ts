@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "../../db/client";
-import { categories, reportMedia, reports } from "../../db/schema";
+import { agencies, categories, reportMedia, reports } from "../../db/schema";
 import type { ReportStatus } from "../../domain/reports/status";
 
 export async function findActiveCategory(db: Db, categoryId: string) {
@@ -67,6 +67,8 @@ export async function listReportsForReporter(db: Db, reporterId: string, limit =
 }
 
 export interface ReportDetail extends ReportSummary {
+  /** The agency currently holding the report, once routed. */
+  agencyName: string | null;
   lon: number;
   lat: number;
   photos: { publicId: string; width: number; height: number }[];
@@ -86,11 +88,13 @@ export async function findReportForReporter(
       categoryName: categories.name,
       description: reports.description,
       createdAt: reports.createdAt,
+      agencyName: agencies.name,
       lon: sql<number>`ST_X(${reports.location}::geometry)`,
       lat: sql<number>`ST_Y(${reports.location}::geometry)`,
     })
     .from(reports)
     .innerJoin(categories, eq(categories.id, reports.categoryId))
+    .leftJoin(agencies, eq(agencies.id, reports.agencyId))
     .where(and(eq(reports.id, reportId), eq(reports.reporterId, reporterId)))
     .limit(1);
   if (!row) return null;

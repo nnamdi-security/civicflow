@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { StatusBadge } from "@/components/status-badge";
+import { StatusHistory } from "@/components/status-history";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
+import { listStatusHistory } from "@/server/repositories/report-workflow";
 import { findReportForReporter } from "@/server/repositories/reports";
 import { getMediaStorage } from "@/server/reports/deps";
 
@@ -23,6 +25,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   const report = await findReportForReporter(getDb(), id, actor.userId);
   if (!report) notFound();
 
+  const history = await listStatusHistory(getDb(), report.id);
   const media = getMediaStorage();
   const mapLink = `https://www.openstreetmap.org/?mlat=${report.lat}&mlon=${report.lon}#map=17/${report.lat}/${report.lon}`;
 
@@ -43,6 +46,10 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           <dd>{report.categoryName}</dd>
         </div>
         <div>
+          <dt className="font-medium">Handled by</dt>
+          <dd>{report.agencyName ?? "Not assigned to an agency yet"}</dd>
+        </div>
+        <div>
           <dt className="font-medium">Description</dt>
           {/* Plain text: React escapes it; whitespace-pre-wrap keeps the reporter's line breaks. */}
           <dd className="whitespace-pre-wrap">{report.description}</dd>
@@ -57,6 +64,9 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
           </dd>
         </div>
       </dl>
+
+      <h2 className="text-lg font-semibold">Progress</h2>
+      <StatusHistory entries={history} />
 
       <h2 className="text-lg font-semibold">Photos</h2>
       <ul className="flex flex-col gap-3">

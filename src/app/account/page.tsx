@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/button";
+import { agencyScopeFor } from "@/domain/permissions";
 import { auth } from "@/server/auth";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
@@ -39,6 +41,11 @@ export default async function AccountPage() {
           </div>
         ) : null}
       </dl>
+      {agencyScopeFor(actor).kind !== "none" ? (
+        <Link href="/agency" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
+          Reports inbox
+        </Link>
+      ) : null}
       <form action={signOutAction}>
         <Button type="submit">Sign out</Button>
       </form>
