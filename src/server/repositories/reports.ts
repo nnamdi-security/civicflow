@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Db } from "../../db/client";
 import { agencies, categories, reportMedia, reports } from "../../db/schema";
 import type { ReportStatus } from "../../domain/reports/status";
+import { currentEscalationLevel, toLevel } from "./sla-columns";
 
 export async function findActiveCategory(db: Db, categoryId: string) {
   const [row] = await db
@@ -69,6 +70,11 @@ export async function listReportsForReporter(db: Db, reporterId: string, limit =
 export interface ReportDetail extends ReportSummary {
   /** The agency currently holding the report, once routed. */
   agencyName: string | null;
+  ackDueAt: Date | null;
+  resolveDueAt: Date | null;
+  /** Highest escalation level recorded in the current SLA cycle, per timer. */
+  ackLevel: number | null;
+  resolveLevel: number | null;
   lon: number;
   lat: number;
   photos: { publicId: string; width: number; height: number }[];
@@ -89,6 +95,10 @@ export async function findReportForReporter(
       description: reports.description,
       createdAt: reports.createdAt,
       agencyName: agencies.name,
+      ackDueAt: reports.ackDueAt,
+      resolveDueAt: reports.resolveDueAt,
+      ackLevel: currentEscalationLevel("acknowledge"),
+      resolveLevel: currentEscalationLevel("resolve"),
       lon: sql<number>`ST_X(${reports.location}::geometry)`,
       lat: sql<number>`ST_Y(${reports.location}::geometry)`,
     })
@@ -104,5 +114,12 @@ export async function findReportForReporter(
     .from(reportMedia)
     .where(eq(reportMedia.reportId, reportId))
     .orderBy(reportMedia.position);
-  return { ...row, lon: Number(row.lon), lat: Number(row.lat), photos };
+  return {
+    ...row,
+    ackLevel: toLevel(row.ackLevel),
+    resolveLevel: toLevel(row.resolveLevel),
+    lon: Number(row.lon),
+    lat: Number(row.lat),
+    photos,
+  };
 }

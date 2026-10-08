@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
+import { SlaNotice } from "@/components/sla-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { StatusHistory } from "@/components/status-history";
+import { systemClock } from "@/domain/clock";
+import { overdueTimers } from "@/domain/sla";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
 import { listStatusHistory } from "@/server/repositories/report-workflow";
@@ -39,6 +42,13 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
         <StatusBadge status={report.status} />
         <span>Sent {dateTimeFormat.format(report.createdAt)}</span>
       </p>
+
+      <SlaNotice
+        overdue={overdueTimers(report, systemClock)}
+        ackLevel={report.ackLevel}
+        resolveLevel={report.resolveLevel}
+        audience="resident"
+      />
 
       <dl className="flex flex-col gap-3">
         <div>

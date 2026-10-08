@@ -5,6 +5,7 @@ import type { Clock } from "../../domain/clock";
 import type { AgencyScope } from "../../domain/permissions";
 import type { ReportStatus } from "../../domain/reports/status";
 import { timersAfterEntering, type SlaPolicy } from "../../domain/sla";
+import { currentEscalationLevel, toLevel } from "./sla-columns";
 
 export interface WorkflowReport {
   id: string;
@@ -133,6 +134,11 @@ export interface StaffReportSummary {
   description: string;
   agencyName: string | null;
   createdAt: Date;
+  ackDueAt: Date | null;
+  resolveDueAt: Date | null;
+  /** Highest escalation level recorded in the current SLA cycle, per timer. */
+  ackLevel: number | null;
+  resolveLevel: number | null;
 }
 
 const staffSummary = {
@@ -143,7 +149,20 @@ const staffSummary = {
   description: reports.description,
   agencyName: agencies.name,
   createdAt: reports.createdAt,
+  ackDueAt: reports.ackDueAt,
+  resolveDueAt: reports.resolveDueAt,
+  ackLevel: currentEscalationLevel("acknowledge"),
+  resolveLevel: currentEscalationLevel("resolve"),
 };
+
+type StaffRow = Omit<StaffReportSummary, "ackLevel" | "resolveLevel"> & {
+  ackLevel: number | string | null;
+  resolveLevel: number | string | null;
+};
+
+function normalise<T extends StaffRow>(row: T) {
+  return { ...row, ackLevel: toLevel(row.ackLevel), resolveLevel: toLevel(row.resolveLevel) };
+}
 
 function scopeCondition(scope: AgencyScope) {
   switch (scope.kind) {
@@ -170,7 +189,8 @@ export async function listReportsForScope(
     .leftJoin(agencies, eq(agencies.id, reports.agencyId))
     .where(and(scopeCondition(scope), options.status ? eq(reports.status, options.status) : undefined))
     .orderBy(desc(reports.createdAt))
-    .limit(options.limit ?? 100);
+    .limit(options.limit ?? 100)
+    .then((rows) => rows.map(normalise));
 }
 
 /** Unrouted reports awaiting a platform admin, oldest first. Callers authorize first. */
@@ -182,7 +202,8 @@ export async function listTriageReports(db: Db, limit = 100): Promise<StaffRepor
     .leftJoin(agencies, eq(agencies.id, reports.agencyId))
     .where(and(isNull(reports.agencyId), eq(reports.status, "submitted")))
     .orderBy(asc(reports.createdAt))
-    .limit(limit);
+    .limit(limit)
+    .then((rows) => rows.map(normalise));
 }
 
 export interface StaffReportDetail extends StaffReportSummary {
@@ -210,7 +231,7 @@ export async function findReportForScope(
     .leftJoin(agencies, eq(agencies.id, reports.agencyId))
     .where(and(eq(reports.id, reportId), scopeCondition(scope)))
     .limit(1);
-  return row ? { ...row, lon: Number(row.lon), lat: Number(row.lat) } : null;
+  return row ? { ...normalise(row), lon: Number(row.lon), lat: Number(row.lat) } : null;
 }
 
 export interface StatusHistoryEntry {

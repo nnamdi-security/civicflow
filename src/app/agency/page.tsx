@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { SlaNotice } from "@/components/sla-notice";
 import { StatusBadge } from "@/components/status-badge";
+import { systemClock } from "@/domain/clock";
+import { overdueTimers } from "@/domain/sla";
 import { agencyScopeFor, canViewTriageQueue } from "@/domain/permissions";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
@@ -43,6 +46,12 @@ export default async function AgencyInboxPage() {
                 {scope.kind === "all" ? <span>Agency: {report.agencyName ?? "none yet"}</span> : null}
                 <span>Sent {dateFormat.format(report.createdAt)}</span>
               </p>
+              <SlaNotice
+                overdue={overdueTimers(report, systemClock)}
+                ackLevel={report.ackLevel}
+                resolveLevel={report.resolveLevel}
+                audience="staff"
+              />
             </li>
           ))}
         </ul>

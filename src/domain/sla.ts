@@ -92,3 +92,11 @@ export function currentLevel(dueAt: Date | null, clock: Clock): EscalationLevel 
   const due = escalationLevelsDue(dueAt, clock);
   return due.at(-1) ?? null;
 }
+
+/** Which running timers are past their deadline right now. */
+export function overdueTimers(state: Pick<TimerState, "ackDueAt" | "resolveDueAt">, clock: Clock): SlaTimer[] {
+  const overdue: SlaTimer[] = [];
+  if (isOverdue(state.ackDueAt, clock)) overdue.push("acknowledge");
+  if (isOverdue(state.resolveDueAt, clock)) overdue.push("resolve");
+  return overdue;
+}

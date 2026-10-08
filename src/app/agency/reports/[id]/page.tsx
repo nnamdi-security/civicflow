@@ -2,9 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { Button } from "@/components/button";
+import { SlaNotice } from "@/components/sla-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { StatusHistory } from "@/components/status-history";
+import { systemClock } from "@/domain/clock";
 import { agencyScopeFor, canReassignReports } from "@/domain/permissions";
+import { overdueTimers } from "@/domain/sla";
 import { allowedTargets, validateReassignment, validateTransition } from "@/domain/reports/transitions";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
@@ -86,6 +89,13 @@ export default async function AgencyReportPage({
         <span>Sent {dateTimeFormat.format(report.createdAt)}</span>
       </p>
 
+      <SlaNotice
+        overdue={overdueTimers(report, systemClock)}
+        ackLevel={report.ackLevel}
+        resolveLevel={report.resolveLevel}
+        audience="staff"
+      />
+
       <dl className="flex flex-col gap-3">
         <div>
           <dt className="font-medium">Category</dt>
@@ -95,6 +105,22 @@ export default async function AgencyReportPage({
           <dt className="font-medium">Agency</dt>
           <dd>{report.agencyName ?? "Not assigned yet"}</dd>
         </div>
+        {report.ackDueAt ? (
+          <div>
+            <dt className="font-medium">Acknowledge by</dt>
+            <dd>
+              <time dateTime={report.ackDueAt.toISOString()}>{dateTimeFormat.format(report.ackDueAt)}</time>
+            </dd>
+          </div>
+        ) : null}
+        {report.resolveDueAt ? (
+          <div>
+            <dt className="font-medium">Resolve by</dt>
+            <dd>
+              <time dateTime={report.resolveDueAt.toISOString()}>{dateTimeFormat.format(report.resolveDueAt)}</time>
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="font-medium">Description</dt>
           <dd className="whitespace-pre-wrap">{report.description}</dd>

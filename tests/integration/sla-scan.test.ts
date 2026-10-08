@@ -3,6 +3,9 @@ import { PgBoss } from "pg-boss";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { agencies, categories, escalations, reports, users } from "@/db/schema";
 import { fixedClock } from "@/domain/clock";
+import { agencyScopeFor } from "@/domain/permissions";
+import { findReportForReporter } from "@/server/repositories/reports";
+import { findReportForScope, listReportsForScope } from "@/server/repositories/report-workflow";
 import type { ScanResult } from "@/server/sla/scan";
 import { runSlaScan } from "@/server/sla/scan";
 import { SLA_SCAN_QUEUE, registerSlaScan } from "@/server/jobs/sla-scan-job";
@@ -136,6 +139,29 @@ describe("runSlaScan: idempotency", () => {
     await conn.db.update(reports).set({ slaCycle: 2, ackDueAt: newDue }).where(eq(reports.id, r.id));
     expect(await runSlaScan(conn.db, fixedClock(new Date(newDue.getTime() + SECOND)))).toEqual({ recorded: 1 });
     expect(await recordedFor(r.id)).toEqual(["acknowledge:1:c1", "acknowledge:1:c2"]);
+  });
+});
+
+describe("escalation levels in read models", () => {
+  it("expose the highest level of the current cycle to staff and to the reporter", async () => {
+    const r = await report();
+    await runSlaScan(conn.db, at(25 * HOUR));
+    const scope = agencyScopeFor({ role: "platform_admin", agencyId: null });
+
+    const [listed] = await listReportsForScope(conn.db, scope);
+    expect(listed).toMatchObject({ id: r.id, ackLevel: 2, resolveLevel: null, ackDueAt: DUE });
+    const detail = await findReportForScope(conn.db, r.id, scope);
+    expect(detail).toMatchObject({ ackLevel: 2, resolveLevel: null });
+    const own = await findReportForReporter(conn.db, r.id, reporterId);
+    expect(own).toMatchObject({ ackLevel: 2, resolveLevel: null, ackDueAt: DUE });
+  });
+
+  it("forget old levels once the SLA cycle restarts", async () => {
+    const r = await report();
+    await runSlaScan(conn.db, at(25 * HOUR));
+    await conn.db.update(reports).set({ slaCycle: 2, ackDueAt: new Date(DUE.getTime() + 30 * HOUR) }).where(eq(reports.id, r.id));
+    const [listed] = await listReportsForScope(conn.db, agencyScopeFor({ role: "platform_admin", agencyId: null }));
+    expect(listed?.ackLevel).toBeNull();
   });
 });
 

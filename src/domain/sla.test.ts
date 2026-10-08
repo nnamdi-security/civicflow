@@ -7,6 +7,7 @@ import {
   currentLevel,
   escalationLevelsDue,
   isOverdue,
+  overdueTimers,
   timersAfterEntering,
   type SlaPolicy,
   type TimerState,
@@ -143,5 +144,24 @@ describe("escalation ladder", () => {
   it("orders the ladder by increasing delay", () => {
     const delays = [1, 2, 3].map((level) => ESCALATION_LADDER[level as 1 | 2 | 3].delayMs);
     expect(delays).toEqual([...delays].sort((a, b) => a - b));
+  });
+});
+
+describe("overdueTimers", () => {
+  const ack = new Date("2026-03-02T09:00:00Z");
+  const resolve = new Date("2026-03-08T09:00:00Z");
+
+  it("lists only the timers strictly past their deadline", () => {
+    expect(overdueTimers({ ackDueAt: ack, resolveDueAt: resolve }, clockAt(ack))).toEqual([]);
+    expect(overdueTimers({ ackDueAt: ack, resolveDueAt: resolve }, clockAt(plus(ack, 1000)))).toEqual(["acknowledge"]);
+    expect(overdueTimers({ ackDueAt: ack, resolveDueAt: resolve }, clockAt(plus(resolve, 1000)))).toEqual([
+      "acknowledge",
+      "resolve",
+    ]);
+  });
+
+  it("skips stopped timers", () => {
+    expect(overdueTimers({ ackDueAt: null, resolveDueAt: resolve }, clockAt(plus(resolve, 1000)))).toEqual(["resolve"]);
+    expect(overdueTimers({ ackDueAt: null, resolveDueAt: null }, clockAt(plus(resolve, 1000)))).toEqual([]);
   });
 });
