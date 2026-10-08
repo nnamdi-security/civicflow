@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { Pool } from "pg";
+import { createDb } from "../../src/db/client";
+import { systemClock } from "../../src/domain/clock";
+import { runSlaScan } from "../../src/server/sla/scan";
 import { signInThroughEmail, stamp, stubMapTiles, submitPothole } from "./helpers";
 
 const AGENCY_NAME = "E2E Roads Agency";
@@ -20,7 +23,7 @@ function databaseUrl() {
 
 // status_events and assignments reject DELETE, so tests clear them with TRUNCATE (test database only).
 async function clear() {
-  await pool.query("truncate table assignments, status_events, report_media, reports");
+  await pool.query("truncate table escalations, assignments, status_events, report_media, reports");
   await pool.query("delete from users where email like 'e2e-%-officer@example.com' or email like 'e2e-%-other-officer@example.com'");
   await pool.query("delete from agencies where name = any($1)", [[AGENCY_NAME, OTHER_AGENCY_NAME]]);
   await pool.query("delete from jurisdictions where name = 'E2E Nigeria'");
@@ -97,4 +100,46 @@ test("a report is routed to its agency, the officer acknowledges it, and the res
   await expect(page.getByText("Status: Acknowledged").first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Progress" })).toBeVisible();
   await expect(page.locator("ol").getByText("Status: Sent to agency")).toBeVisible();
+});
+
+test("a report left unacknowledged is flagged overdue and escalated, for staff and for the resident", async ({
+  page,
+  browser,
+}) => {
+  await stubMapTiles(page);
+  await signInThroughEmail(page, `e2e-${stamp}-overdue-resident@example.com`, "/report/new");
+  const reportUrl = await submitPothole(page);
+  const reportId = reportUrl.split("/").pop();
+
+  // Nothing is overdue yet.
+  await expect(page.getByText(/^Overdue:/)).toHaveCount(0);
+
+  // Pretend the acknowledgement deadline passed 80 hours ago, then run the real scan.
+  await pool.query("update reports set ack_due_at = now() - interval '80 hours' where id = $1", [reportId]);
+  const { db, pool: scanPool } = createDb(databaseUrl());
+  try {
+    expect((await runSlaScan(db, systemClock)).recorded).toBe(3);
+    expect((await runSlaScan(db, systemClock)).recorded).toBe(0);
+  } finally {
+    await scanPool.end();
+  }
+
+  // The resident is told, in words, and sees the public flag.
+  await page.goto(reportUrl);
+  await expect(page.getByText(/Overdue: the agency has not yet acknowledged this report\. It has been marked publicly overdue\./)).toBeVisible();
+
+  // Staff see which timer is overdue and how far it escalated.
+  const staffContext = await browser.newContext();
+  const staff = await staffContext.newPage();
+  await signInThroughEmail(staff, OFFICER, `/agency/reports/${reportId}`);
+  await expect(staff.getByText("Overdue: acknowledgement (escalated: publicly marked overdue)")).toBeVisible();
+  await expect(staff.getByText("Acknowledge by")).toBeVisible();
+
+  // Acknowledging stops that timer, so the notice goes away.
+  await staff.getByRole("button", { name: "Acknowledge" }).click();
+  await expect(staff.getByRole("status")).toHaveText("Status updated.");
+  await expect(staff.getByText(/^Overdue:/)).toHaveCount(0);
+  await staffContext.close();
+  await page.goto(reportUrl);
+  await expect(page.getByText(/^Overdue:/)).toHaveCount(0);
 });

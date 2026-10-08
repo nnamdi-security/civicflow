@@ -15,6 +15,7 @@ export TEST_DATABASE_URL=postgres://civicflow:civicflow_dev_only@localhost:5433/
 pnpm db:migrate
 pnpm db:seed        # optional: sample jurisdictions and agency (not real boundaries)
 pnpm dev            # http://localhost:3000, health check at /api/health
+pnpm worker         # separate process: runs the SLA escalation scan every minute (needs DATABASE_URL)
 ```
 
 ## Signing in locally

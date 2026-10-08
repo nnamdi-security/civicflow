@@ -2,6 +2,26 @@
 
 High-level, newest first. One entry per working day: what was done, what is next, and anything blocking. Commit hashes point to detail. Roadmap status lives in `roadmap.md`, not here.
 
+## 2026-10-09
+**Done**
+- Phase 5 (deadlines and escalation) completed, using provisional placeholder values until real SLA targets are decided.
+  - Every routed report now has an acknowledgement deadline and a resolution deadline, taken from per-category policy (for example roads: 24 hours to acknowledge, 14 days to resolve).
+  - Deadlines start, stop and restart correctly as a report moves: acknowledging stops the first clock, resolving stops both, a resident dispute restarts the resolution clock, a reassignment restarts both.
+  - A background worker checks every minute and records escalations: agency admin at the deadline, platform admin after 24 hours, publicly overdue after 72 hours. Re-running never creates duplicates, and it catches up after downtime.
+  - Staff and residents now see an "Overdue" notice in words (not just colour) on report pages and the staff inbox.
+  - Recorded the design as ADR 0010 and updated the SLA documentation.
+- Tests: 312 unit and integration tests plus 4 end-to-end journeys, all passing.
+
+**Next**
+- Phase 6 (notifications by email and SMS) will turn recorded escalations and status changes into messages.
+
+**Blockers / risks**
+- Real SLA values and escalation ladder still needed; the numbers in use are placeholders.
+- Worker needs a long-running host; deployment target not yet chosen.
+- Real state/LGA boundaries and a live Cloudinary check are still outstanding.
+
+Commits: `eef5efa`..latest (Phase 5).
+
 ## 2026-10-08
 **Done**
 - Phase 4 (routing and status workflow) completed.

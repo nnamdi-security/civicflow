@@ -7,7 +7,7 @@ Status lives only in this file.
 - [x] Phase 2: Auth + roles, agency and jurisdiction data (real state/LGA boundary import still to do; dev uses sample polygons)
 - [x] Phase 3: Report submission (map, media upload). Not yet tested against a live Cloudinary account.
 - [x] Phase 4: Routing + state machine (routing verified only against sample and test polygons; real state/LGA boundaries still to import; duplicate detection deferred)
-- [ ] Phase 5: SLA timers + escalation (pg-boss)
+- [x] Phase 5: SLA timers + escalation (pg-boss). SLA values and the escalation ladder are provisional placeholders (ADR 0010); escalations are recorded and displayed but not yet notified (Phase 6); worker hosting target undecided
 - [ ] Phase 6: Notifications (Resend, Termii)
 - [ ] Phase 7: Tracking + resident confirmation
 - [ ] Phase 8: Agency dashboards, hardening, launch

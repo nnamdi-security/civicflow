@@ -9,6 +9,8 @@
 ## Background jobs
 pg-boss on the same PostgreSQL database (ADR 0002). Jobs: SLA deadline checks, escalation, notification delivery with retry. Jobs must be idempotent.
 
+Phase 5 runs one recurring job, `sla-scan` (every minute), from a separate worker process (`pnpm worker`, `scripts/worker.ts`). Handlers live in `src/server/jobs/`; the scan itself is `src/server/sla/scan.ts` and records escalations idempotently (ADR 0010). The app does not need the worker to serve requests, but escalations only appear while it runs.
+
 ## Auth
 Auth.js (ADR 0003). Roles: resident, agency_officer, agency_admin, platform_admin.
 
