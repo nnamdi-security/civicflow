@@ -18,6 +18,7 @@ import {
 } from "../adapters/media/media-storage";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
 import { rateLimitKey } from "../rate-limit/rate-limiter";
+import { enqueueNotifications } from "../repositories/notifications";
 import { routeNewReport } from "./route-report";
 import { findActiveCategory, findReportByIdempotencyKey, findUsedPublicIds } from "../repositories/reports";
 
@@ -150,11 +151,11 @@ export async function createReport(
           toStatus: INITIAL_REPORT_STATUS,
           actorId: actor.userId,
         });
+        await enqueueNotifications(tx, { reportId: row.id, event: "report_received", slaCycle: 0 });
         // ADR 0009: route in the same transaction. No match leaves it in the triage queue.
         await routeNewReport(tx, deps.clock, row.id);
         return row;
       });
-      // Phase 6: enqueue the "report received" notification here, in the same transaction.
       return { ok: true, created: true, report };
     } catch (error) {
       const constraint = uniqueViolationConstraint(error);

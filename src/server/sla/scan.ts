@@ -1,7 +1,9 @@
 import { sql } from "drizzle-orm";
 import type { Db } from "../../db/client";
 import { escalations } from "../../db/schema";
+import { eventForEscalation } from "../../domain/notifications/events";
 import type { Clock } from "../../domain/clock";
+import { enqueueNotifications } from "../repositories/notifications";
 import {
   ESCALATION_LADDER,
   ESCALATION_LEVELS,
@@ -73,19 +75,35 @@ export async function runSlaScan(db: Db, clock: Clock): Promise<ScanResult> {
     );
     if (due.length === 0) continue;
 
-    const inserted = await db
-      .insert(escalations)
-      .values(
-        due.map((row) => ({
-          reportId: row.report_id,
+    // The escalation and its notifications commit together (ADR 0011): either both exist or neither.
+    recorded += await db.transaction(async (tx) => {
+      const inserted = await tx
+        .insert(escalations)
+        .values(
+          due.map((row) => ({
+            reportId: row.report_id,
+            timer: row.timer,
+            level: row.level,
+            slaCycle: row.sla_cycle,
+          })),
+        )
+        .onConflictDoNothing()
+        .returning({
+          reportId: escalations.reportId,
+          timer: escalations.timer,
+          level: escalations.level,
+          slaCycle: escalations.slaCycle,
+        });
+      for (const row of inserted) {
+        await enqueueNotifications(tx, {
+          reportId: row.reportId,
+          event: eventForEscalation(row.level as EscalationLevel),
+          slaCycle: row.slaCycle,
           timer: row.timer,
-          level: row.level,
-          slaCycle: row.sla_cycle,
-        })),
-      )
-      .onConflictDoNothing()
-      .returning({ id: escalations.id });
-    recorded += inserted.length;
+        });
+      }
+      return inserted.length;
+    });
   }
   return { recorded };
 }

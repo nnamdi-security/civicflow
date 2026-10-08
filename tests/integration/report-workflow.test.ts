@@ -7,6 +7,7 @@ import {
   assignments,
   categories,
   jurisdictions,
+  notifications,
   rateLimits,
   reports,
   statusEvents,
@@ -27,6 +28,8 @@ import { changeReportStatus } from "@/server/reports/change-status";
 import { createReport, type CreateReportDeps } from "@/server/reports/create-report";
 import { reassignReport } from "@/server/reports/reassign-report";
 import { agencyScopeFor } from "@/domain/permissions";
+import { enqueueNotifications } from "@/server/repositories/notifications";
+import { runSlaScan } from "@/server/sla/scan";
 import { resetReports, setupTestDb } from "./test-db";
 
 let conn: Awaited<ReturnType<typeof setupTestDb>>;
@@ -405,5 +408,115 @@ describe("agency scoping in queries", () => {
 
     expect(await findReportForScope(conn.db, mine, agencyScopeFor(officerB))).toBeNull();
     expect(await findReportForScope(conn.db, mine, agencyScopeFor(officerA))).toMatchObject({ id: mine, agencyName: "wf-agency-a" });
+  });
+});
+
+describe("notifications queued by the workflow", () => {
+  const queued = async (reportId: string) => {
+    const rows = await conn.db.select().from(notifications).where(eq(notifications.reportId, reportId));
+    const name = (id: string) =>
+      id === resident.userId ? "resident" : id === adminA.userId ? "adminA" : id === platform.userId ? "platform" : id === officerA.userId ? "officerA" : "other";
+    return rows
+      .map((r) => `${r.event}:${r.channel}:${name(r.recipientUserId)}:c${r.slaCycle}${r.discriminator ? `:${r.discriminator}` : ""}`)
+      .sort();
+  };
+
+  it("queues 'received' and 'sent to agency' emails for the resident when a report is routed", async () => {
+    const id = await submit();
+    expect(await queued(id)).toEqual(["report_received:email:resident:c0", "report_routed:email:resident:c1"]);
+    const rows = await conn.db.select().from(notifications);
+    expect(rows.every((r) => r.status === "pending" && r.attempts === 0)).toBe(true);
+  });
+
+  it("queues only 'received' for a report waiting in triage, then 'routed' once assigned", async () => {
+    const id = await submit(OUTSIDE);
+    expect(await queued(id)).toEqual(["report_received:email:resident:c0"]);
+    await reassignReport({ db: conn.db, clock }, platform, { reportId: id, agencyId: agencyB });
+    expect(await queued(id)).toEqual(["report_received:email:resident:c0", "report_routed:email:resident:c1"]);
+  });
+
+  it("tells the resident about acknowledgement, but is silent for in_progress", async () => {
+    const id = await submit();
+    await changeReportStatus(deps, officerA, to(id, "acknowledged"));
+    await changeReportStatus(deps, officerA, to(id, "in_progress"));
+    expect(await queued(id)).toContain("report_acknowledged:email:resident:c1");
+    expect((await queued(id)).filter((n) => n.startsWith("report_acknowledged"))).toHaveLength(1);
+    expect((await queued(id)).some((n) => n.includes("in_progress"))).toBe(false);
+  });
+
+  it("sends resolved by email and SMS to the resident only", async () => {
+    const id = await resolvedReport();
+    const resolved = (await queued(id)).filter((n) => n.startsWith("report_resolved"));
+    expect(resolved).toEqual(["report_resolved:email:resident:c1", "report_resolved:sms:resident:c1"]);
+  });
+
+  it("tells the agency admins, not officers, when the resident disputes, in the new cycle", async () => {
+    const id = await resolvedReport();
+    await changeReportStatus(deps, resident, to(id, "disputed", "still broken"));
+    const disputed = (await queued(id)).filter((n) => n.startsWith("report_disputed"));
+    expect(disputed).toEqual(["report_disputed:email:adminA:c2"]);
+  });
+
+  it("tells the resident when a report is rejected", async () => {
+    const id = await submit();
+    await changeReportStatus(deps, officerA, to(id, "rejected", "not a civic issue"));
+    expect(await queued(id)).toContain("report_rejected:email:resident:c1");
+  });
+
+  it("notifies again after a reassignment, which starts a new cycle", async () => {
+    const id = await submit();
+    await reassignReport({ db: conn.db, clock }, adminA, { reportId: id, agencyId: agencyB });
+    const routed = (await queued(id)).filter((n) => n.startsWith("report_routed"));
+    expect(routed).toEqual(["report_routed:email:resident:c1", "report_routed:email:resident:c2"]);
+  });
+
+  it("queues nothing twice for the same event", async () => {
+    const id = await submit();
+    const count = () => conn.db.select().from(notifications).where(eq(notifications.reportId, id)).then((r) => r.length);
+    const before = await count();
+    const queuedAgain = await conn.db.transaction((tx) =>
+      enqueueNotifications(tx, { reportId: id, event: "report_received", slaCycle: 0 }),
+    );
+    expect(queuedAgain).toBe(0);
+    expect(await count()).toBe(before);
+  });
+
+  it("leaves nothing behind when the surrounding transaction rolls back", async () => {
+    const id = await submit();
+    const before = (await queued(id)).length;
+    await conn.db
+      .transaction(async (tx) => {
+        await enqueueNotifications(tx, { reportId: id, event: "report_disputed", slaCycle: 9 });
+        throw new Error("boom");
+      })
+      .catch(() => undefined);
+    expect((await queued(id)).length).toBe(before);
+  });
+
+  it("walks escalations up the ladder: agency admin, platform admin, then the resident by email and SMS", async () => {
+    const id = await submit();
+    const scan = (afterMs: number) => runSlaScan(conn.db, fixedClock(new Date(START.getTime() + afterMs)));
+    const escalationRows = async () => (await queued(id)).filter((n) => n.startsWith("escalation"));
+
+    await scan(DAY + HOUR); // 1 hour past the 24 h acknowledgement deadline
+    expect(await escalationRows()).toEqual(["escalation_level_1:email:adminA:c1:acknowledge"]);
+
+    await scan(2 * DAY + 2 * HOUR); // more than 24 h past
+    expect(await escalationRows()).toEqual([
+      "escalation_level_1:email:adminA:c1:acknowledge",
+      "escalation_level_2:email:platform:c1:acknowledge",
+    ]);
+
+    await scan(4 * DAY + 2 * HOUR); // more than 72 h past
+    expect(await escalationRows()).toEqual([
+      "escalation_level_1:email:adminA:c1:acknowledge",
+      "escalation_level_2:email:platform:c1:acknowledge",
+      "escalation_level_3:email:resident:c1:acknowledge",
+      "escalation_level_3:sms:resident:c1:acknowledge",
+    ]);
+
+    // A repeat scan queues nothing new.
+    await scan(4 * DAY + 2 * HOUR);
+    expect(await escalationRows()).toHaveLength(4);
   });
 });

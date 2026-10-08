@@ -5,6 +5,8 @@ import type { Clock } from "../../domain/clock";
 import type { AgencyScope } from "../../domain/permissions";
 import type { ReportStatus } from "../../domain/reports/status";
 import { timersAfterEntering, type SlaPolicy } from "../../domain/sla";
+import { eventForStatus } from "../../domain/notifications/events";
+import { enqueueNotifications } from "./notifications";
 import { currentEscalationLevel, toLevel } from "./sla-columns";
 
 export interface WorkflowReport {
@@ -92,6 +94,10 @@ export async function applyStatusChange(tx: Tx, change: StatusChange, clock: Clo
     // now() is the transaction start; use the wall clock so events in one transaction keep their order.
     createdAt: sql`clock_timestamp()` as unknown as Date,
   });
+
+  // Same transaction: the message exists exactly when the change commits (ADR 0011).
+  const event = eventForStatus(change.to);
+  if (event) await enqueueNotifications(tx, { reportId: change.reportId, event, slaCycle: timers.slaCycle });
   return true;
 }
 
