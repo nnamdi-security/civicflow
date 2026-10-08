@@ -20,7 +20,7 @@ export interface MediaStorage {
   imageUrl(publicId: string, options: { width: number }): string;
 }
 
-export type MediaErrorCode = AssetIssue | "not_found" | "unavailable";
+export type MediaErrorCode = AssetIssue | "not_found" | "unavailable" | "already_used";
 
 /** Never carries vendor payloads, URLs, or file names. */
 export class MediaVerificationError extends Error {
