@@ -22,6 +22,7 @@
     "admin:create": "tsx scripts/create-admin.ts",
     "worker": "tsx scripts/worker.ts",
     "dev:last-email": "tsx scripts/last-email.ts",
+    "dev:last-sms": "tsx scripts/last-sms.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

@@ -3,6 +3,8 @@ export interface EmailMessage {
   subject: string;
   text: string;
   html: string;
+  /** Lets the provider drop a duplicate of an already-sent message (used for notifications). */
+  idempotencyKey?: string;
 }
 
 /** Callers depend on this interface, never on a vendor. */

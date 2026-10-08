@@ -27,6 +27,16 @@ describe("ResendEmailSender", () => {
     expect(JSON.parse(init.body as string).to).toEqual(["user@example.com"]);
   });
 
+  it("passes an idempotency key to the provider only when given one", async () => {
+    const fetchFn = vi.fn(async () => new Response("{}", { status: 200 }));
+    const sender = resend(fetchFn as unknown as typeof fetch);
+    await sender.send({ ...message, idempotencyKey: "key-1" });
+    await sender.send(message);
+    const headers = fetchFn.mock.calls.map((call) => (call as unknown as [string, RequestInit])[1].headers as Record<string, string>);
+    expect(headers[0]?.["Idempotency-Key"]).toBe("key-1");
+    expect(headers[1]).not.toHaveProperty("Idempotency-Key");
+  });
+
   it("marks server errors and rate limits retryable, client errors not", async () => {
     for (const [status, retryable] of [
       [500, true],

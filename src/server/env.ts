@@ -51,6 +51,25 @@ export function parseMediaEnv(raw: Record<string, string | undefined>): MediaEnv
   return parseWith(mediaEnvSchema, raw);
 }
 
+const smsEnvSchema = z
+  .object({
+    TERMII_API_KEY: z.string().min(1).optional(),
+    TERMII_SENDER_ID: z.string().min(1).max(11).optional(),
+    TERMII_BASE_URL: z.url().default("https://api.ng.termii.com"),
+    TERMII_CHANNEL: z.enum(["generic", "dnd"]).default("dnd"),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  })
+  .refine((env) => (env.TERMII_API_KEY === undefined) === (env.TERMII_SENDER_ID === undefined), {
+    path: ["TERMII_SENDER_ID"],
+    message: "set both TERMII_API_KEY and TERMII_SENDER_ID, or neither",
+  });
+
+export type SmsEnv = z.infer<typeof smsEnvSchema>;
+
+export function parseSmsEnv(raw: Record<string, string | undefined>): SmsEnv {
+  return parseWith(smsEnvSchema, raw);
+}
+
 function parseWith<T>(schema: z.ZodType<T>, raw: Record<string, string | undefined>): T {
   // `KEY=` in a .env file yields an empty string; treat blank values as unset.
   const present = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined && value !== ""));

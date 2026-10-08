@@ -29,6 +29,7 @@ export class ResendEmailSender implements EmailSender {
         headers: {
           Authorization: `Bearer ${this.config.apiKey}`,
           "Content-Type": "application/json",
+          ...(message.idempotencyKey ? { "Idempotency-Key": message.idempotencyKey } : {}),
         },
         body: JSON.stringify({
           from: this.config.from,
