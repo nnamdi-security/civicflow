@@ -52,7 +52,9 @@ export function parseMediaEnv(raw: Record<string, string | undefined>): MediaEnv
 }
 
 function parseWith<T>(schema: z.ZodType<T>, raw: Record<string, string | undefined>): T {
-  const result = schema.safeParse(raw);
+  // `KEY=` in a .env file yields an empty string; treat blank values as unset.
+  const present = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined && value !== ""));
+  const result = schema.safeParse(present);
   if (!result.success) {
     const names = result.error.issues.map((issue) => issue.path.join(".")).join(", ");
     throw new Error(`Invalid environment configuration: ${names}`);

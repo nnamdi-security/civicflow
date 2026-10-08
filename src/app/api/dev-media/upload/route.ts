@@ -1,4 +1,4 @@
-import { DevMediaStorage } from "@/server/adapters/media";
+import { isDevMediaStorage } from "@/server/adapters/media";
 import { MediaVerificationError } from "@/server/adapters/media/media-storage";
 import { getMediaStorage } from "@/server/reports/deps";
 
@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   const storage = getMediaStorage();
-  if (!(storage instanceof DevMediaStorage)) return new Response("Not found", { status: 404 });
+  if (!isDevMediaStorage(storage)) return new Response("Not found", { status: 404 });
 
   const form = await request.formData().catch(() => null);
   const token = form?.get("token");

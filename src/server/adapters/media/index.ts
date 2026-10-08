@@ -7,7 +7,7 @@ import type { MediaStorage } from "./media-storage";
 export { MediaVerificationError } from "./media-storage";
 export type { MediaStorage, UploadAuthorization, UploadedAsset } from "./media-storage";
 export { FakeMediaStorage } from "./fake-media-storage";
-export { DevMediaStorage } from "./dev-media-storage";
+export { DevMediaStorage, isDevMediaStorage } from "./dev-media-storage";
 
 /** Cloudinary when configured; the local dev store outside production; otherwise a hard failure. */
 export function createMediaStorage(env: MediaEnv): MediaStorage {

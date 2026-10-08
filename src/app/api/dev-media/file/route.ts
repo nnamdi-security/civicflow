@@ -1,4 +1,4 @@
-import { DevMediaStorage } from "@/server/adapters/media";
+import { isDevMediaStorage } from "@/server/adapters/media";
 import { getMediaStorage } from "@/server/reports/deps";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ const CONTENT_TYPES: Record<string, string> = { png: "image/png", jpg: "image/jp
 /** Serves photos from the dev store. 404 whenever the dev store is not the active storage. */
 export async function GET(request: Request) {
   const storage = getMediaStorage();
-  if (!(storage instanceof DevMediaStorage)) return new Response("Not found", { status: 404 });
+  if (!isDevMediaStorage(storage)) return new Response("Not found", { status: 404 });
 
   const id = new URL(request.url).searchParams.get("id");
   const file = id ? await storage.readFile(id) : null;

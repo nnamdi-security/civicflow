@@ -20,7 +20,8 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx scripts/seed-dev.ts",
     "admin:create": "tsx scripts/create-admin.ts",
-    "dev:last-email": "tsx scripts/last-email.ts"
+    "dev:last-email": "tsx scripts/last-email.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.3",
@@ -35,6 +36,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^20",

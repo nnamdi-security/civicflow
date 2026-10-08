@@ -171,3 +171,13 @@ function parseTokenPayload(payload: string): { r: string; e: number } {
   }
   throw new MediaVerificationError("not_owner");
 }
+
+/**
+ * True for the dev store. Checks for its methods instead of using `instanceof`: Next.js
+ * compiles server actions and route handlers into separate bundles, so the same instance can
+ * be a different class object in each. The Cloudinary adapter has neither method.
+ */
+export function isDevMediaStorage(storage: MediaStorage): storage is DevMediaStorage {
+  const candidate = storage as Partial<DevMediaStorage>;
+  return typeof candidate.acceptUpload === "function" && typeof candidate.readFile === "function";
+}

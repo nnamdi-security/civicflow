@@ -13,3 +13,7 @@ next-env.d.ts
 .DS_Store
 .dev-outbox/
 .dev-media/
+
+# Playwright
+/test-results/
+/playwright-report/
