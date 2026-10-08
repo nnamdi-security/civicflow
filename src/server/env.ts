@@ -29,6 +29,28 @@ export function parseAuthEnv(raw: Record<string, string | undefined>): AuthEnv {
   return parseWith(authEnvSchema, raw);
 }
 
+const mediaEnvSchema = z
+  .object({
+    AUTH_SECRET: z.string().min(32),
+    CLOUDINARY_CLOUD_NAME: z.string().min(1).optional(),
+    CLOUDINARY_API_KEY: z.string().min(1).optional(),
+    CLOUDINARY_API_SECRET: z.string().min(1).optional(),
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  })
+  .refine(
+    (env) => {
+      const set = [env.CLOUDINARY_CLOUD_NAME, env.CLOUDINARY_API_KEY, env.CLOUDINARY_API_SECRET];
+      return set.every((v) => v !== undefined) || set.every((v) => v === undefined);
+    },
+    { path: ["CLOUDINARY_CLOUD_NAME"], message: "set all three Cloudinary variables or none" },
+  );
+
+export type MediaEnv = z.infer<typeof mediaEnvSchema>;
+
+export function parseMediaEnv(raw: Record<string, string | undefined>): MediaEnv {
+  return parseWith(mediaEnvSchema, raw);
+}
+
 function parseWith<T>(schema: z.ZodType<T>, raw: Record<string, string | undefined>): T {
   const result = schema.safeParse(raw);
   if (!result.success) {
