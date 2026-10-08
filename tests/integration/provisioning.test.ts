@@ -20,14 +20,18 @@ beforeAll(async () => {
   conn = await setupTestDb();
 });
 
-beforeEach(async () => {
+async function clearStaffData() {
   await conn.db.delete(users);
   await conn.db.delete(agencyJurisdictions);
   await conn.db.delete(agencies);
   await conn.db.delete(jurisdictions);
-});
+}
+
+beforeEach(clearStaffData);
 
 afterAll(async () => {
+  // Leave no sample agencies or jurisdictions behind: routing tests in other files would pick them up.
+  await clearStaffData();
   await conn.pool.end();
 });
 
