@@ -27,6 +27,13 @@ Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR
 - A reporter can only read their own reports; another user's report returns 404, indistinguishable from a missing one.
 - Reports store the exact point. How precisely the location appears in public views is a Phase 7 decision.
 
+## Routing and staff access (Phase 4)
+- Agency staff see only reports assigned to their agency; platform admins see all; residents have no staff view. The scope is applied inside the repository query (`agencyScopeFor`), not only in the UI.
+- A report outside the caller's scope returns 404, indistinguishable from a missing one, on the staff pages and in the use cases (`not_found`).
+- Status changes and reassignments go through the domain state machine; the database rejects a routed report with no agency, and `status_events` and `assignments` reject UPDATE and DELETE.
+- Concurrent status changes use compare-and-set, so only one wins.
+- Staff pages show the report, its location and photos, but not who reported it. The status history shows what happened and when, not who did it.
+
 ## Abuse and reliability
 Rate-limit submissions per account/IP, validate uploads, and sanitize all free text.
 

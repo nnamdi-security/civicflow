@@ -6,7 +6,7 @@ Status lives only in this file.
 - [x] Phase 1: Scaffold (Next.js, TS strict, Tailwind, Drizzle, lint/test tooling, CI, local Postgres+PostGIS)
 - [x] Phase 2: Auth + roles, agency and jurisdiction data (real state/LGA boundary import still to do; dev uses sample polygons)
 - [x] Phase 3: Report submission (map, media upload). Not yet tested against a live Cloudinary account.
-- [ ] Phase 4: Routing + state machine
+- [x] Phase 4: Routing + state machine (routing verified only against sample and test polygons; real state/LGA boundaries still to import; duplicate detection deferred)
 - [ ] Phase 5: SLA timers + escalation (pg-boss)
 - [ ] Phase 6: Notifications (Resend, Termii)
 - [ ] Phase 7: Tracking + resident confirmation
