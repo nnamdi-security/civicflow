@@ -23,5 +23,8 @@ Reporting, routing, SLA timers, escalation, notifications (email + SMS), public 
 ## Non-goals (for now)
 Native mobile apps, payments, public analytics dashboards, AI triage.
 
+## Decisions
+- Reporting requires sign-in, with one to three photos per report (ADR 0007).
+
 ## Open questions
-- Anonymous reporting allowed? (see `security-privacy.md`)
+- How precisely should a report's location be shown publicly? (Phase 7)

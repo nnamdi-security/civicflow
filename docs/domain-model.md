@@ -1,16 +1,16 @@
 # Domain model
 
 ## Entities (draft)
-- **Report** — category, description, location, status, reporter, assigned agency, timestamps.
+- **Report** — category, description, location, status, reporter, assigned agency, timestamps. Implemented (Phase 3) without the agency link, which arrives with routing. Location is `geography(Point, 4326)`; description is 10–1000 characters of sanitized plain text; a short reference code (`CF-XXXXXXXX`) is shown to the reporter; a per-reporter idempotency key makes resubmits safe. Rules live in `src/domain/reports/`.
 - **User** — email (lowercase, unique), role, optional agency. Implemented (Phase 2).
 - **Agency** — name, type (roads, drainage, water, power, waste, streetlights), contacts, jurisdiction(s). Implemented without contacts.
-- **Category** — name, default agency type, SLA policy.
+- **Category** — name, default agency type, SLA policy. Implemented without SLA policy (Phase 5); the six launch categories are seeded by migration.
 - **Jurisdiction** — administrative boundary (state/LGA) as a PostGIS polygon, with an optional parent. Implemented (Phase 2).
 - **AgencyJurisdiction** — which jurisdictions an agency covers, with a priority (lower wins routing ties). Implemented (Phase 2).
 - **Assignment** — report-to-agency link with history (reassignments).
-- **StatusEvent** — append-only log of every status change (actor, from, to, reason, time).
+- **StatusEvent** — append-only log of every status change (actor, from, to, reason, time). Implemented (Phase 3): a database trigger rejects UPDATE and DELETE. Every report starts with a null → `submitted` event written in the same transaction as the report.
 - **Confirmation** — resident verdict on a resolution (confirmed/disputed, note).
-- **Media** — Cloudinary asset references for a report.
+- **Media** — Cloudinary asset references for a report. Implemented (Phase 3): one to three photos per report, stored as provider `public_id` plus format, size and position (ADR 0008).
 
 ## Roles and agency scope
 Roles: `resident`, `agency_officer`, `agency_admin`, `platform_admin` (`src/domain/roles.ts`). Agency roles belong to exactly one agency; other roles to none. This is enforced both in the domain (`isConsistentTarget`) and by the `users_agency_scope` database constraint. Policy functions live in `src/domain/permissions.ts` and are the only place role rules are written; repositories apply `agencyScopeFor(actor)` inside queries. Sign-in and sessions: ADR 0005.

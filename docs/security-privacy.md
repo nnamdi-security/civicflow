@@ -17,7 +17,15 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 - Treat photo EXIF and precise home-adjacent locations as sensitive.
 
 ## Anonymous reporting
-Undecided. If allowed, require rate limiting and a lightweight abuse control.
+Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR if sign-in proves a barrier; anonymous reporting would need a CAPTCHA-style control and token-based tracking.
+
+## Report submission and uploads
+- Submissions are rate limited per account (5 per hour, 20 per day); repeats of the same form do not count. Photo upload authorizations are limited to 30 per hour.
+- Photos are uploaded straight to the media provider with a short-lived signed request scoped to the reporter's own folder. Before saving a report the server re-verifies every photo with the provider (owner folder, allowed format, size) and refuses a photo already attached elsewhere (ADR 0008).
+- The browser re-encodes photos before upload, which drops embedded EXIF data. **Open item:** confirm that the provider also strips metadata from stored originals (the upload requests `fl_strip_profile`) with a real Cloudinary account before launch.
+- Free text is normalized (control and invisible characters removed) on write and escaped on render; it is never rendered as HTML.
+- A reporter can only read their own reports; another user's report returns 404, indistinguishable from a missing one.
+- Reports store the exact point. How precisely the location appears in public views is a Phase 7 decision.
 
 ## Abuse and reliability
 Rate-limit submissions per account/IP, validate uploads, and sanitize all free text.

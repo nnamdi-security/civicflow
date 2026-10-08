@@ -5,11 +5,12 @@ Nigerian civic issue reporting and accountability platform. Residents report inf
 Stack: Next.js, TypeScript (strict), PostgreSQL + PostGIS, Drizzle, Auth.js, pg-boss (jobs), Tailwind, Cloudinary, Resend, Termii, Leaflet/OpenStreetMap. Package manager: **pnpm**.
 
 ## Status
-Phases 1–2 done (scaffold, auth and roles, agency and jurisdiction data); no report domain code yet. See `docs/roadmap.md`.
+Phases 1–3 done (scaffold, auth and roles, agency and jurisdiction data, report submission). Routing and the status state machine are next (Phase 4). See `docs/roadmap.md`.
 
 ## Commands
 - `pnpm dev` / `pnpm build`
 - `pnpm lint` / `pnpm typecheck` / `pnpm test`
+- `pnpm test:e2e` (Playwright; needs `TEST_DATABASE_URL`, runs `next dev` on port 3201)
 - `pnpm db:up` / `pnpm db:down` (local Postgres+PostGIS via Docker, ADR 0004)
 - `pnpm db:generate` / `pnpm db:migrate` (Drizzle)
 - `pnpm db:seed` (sample jurisdictions and agency, dev only)
