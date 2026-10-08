@@ -23,6 +23,7 @@ Durations are calendar time, not business hours. They are stored in the `sla_pol
 - A `disputed` report restarts the resolution timer from the moment of the dispute (`disputed → in_progress` does not restart it again).
 - A reassignment restarts both timers from the new assignment. Each restart increments the report's `sla_cycle`.
 - `rejected` and `confirmed` stop all timers. A report that is `resolved` has no running timer until it is disputed.
+- A report that stays `resolved` for more than 14 days is confirmed automatically by the system (PROVISIONAL period, ADR 0013). The period counts from the latest time it entered `resolved` and is exactly 14 days: at 14 days it is not yet confirmed, one second later it is.
 - Pause/resume (for example awaiting resident information): not supported. Timers never pause.
 - A deadline is overdue strictly after it: at exactly the deadline the report is not yet overdue.
 - All SLA math is UTC. Deadlines are `timestamptz` columns on `reports`, indexed. Domain code takes an injected clock.

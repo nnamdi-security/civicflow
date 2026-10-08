@@ -22,6 +22,12 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 - Messages carry the reference code and a link, never the description or the location.
 - Residents can switch off their report emails and SMS. Staff escalation emails are operational and cannot be switched off.
 
+## Public tracking (Phase 7)
+- Public pages are built from an allow-list of named fields (`toPublicReport`), with a test fixing the exact keys. They never include the reporter, handling staff, description, photos, exact location or staff notes.
+- Tracking is by reference code only, rate limited per client address using keyed hashes, `noindex`, and unknown references return 404. There is no public list or map of reports.
+- The public overdue board is off unless `PUBLIC_OVERDUE_BOARD=true`.
+- Auto-confirmation is recorded in the history as an automatic system action.
+
 ## Anonymous reporting
 Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR if sign-in proves a barrier; anonymous reporting would need a CAPTCHA-style control and token-based tracking.
 
@@ -31,7 +37,7 @@ Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR
 - The browser re-encodes photos before upload, which drops embedded EXIF data. **Open item:** confirm that the provider also strips metadata from stored originals (the upload requests `fl_strip_profile`) with a real Cloudinary account before launch.
 - Free text is normalized (control and invisible characters removed) on write and escaped on render; it is never rendered as HTML.
 - A reporter can only read their own reports; another user's report returns 404, indistinguishable from a missing one.
-- Reports store the exact point. How precisely the location appears in public views is a Phase 7 decision.
+- Reports store the exact point. Public views show only the area name (LGA or state), never the point (ADR 0013).
 
 ## Routing and staff access (Phase 4)
 - Agency staff see only reports assigned to their agency; platform admins see all; residents have no staff view. The scope is applied inside the repository query (`agencyScopeFor`), not only in the UI.

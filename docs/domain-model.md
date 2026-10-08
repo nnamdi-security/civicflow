@@ -1,7 +1,7 @@
 # Domain model
 
 ## Entities (draft)
-- **Report** — category, description, location, status, reporter, assigned agency, timestamps. Implemented (Phase 3) without the agency link, which arrives with routing. Location is `geography(Point, 4326)`; description is 10–1000 characters of sanitized plain text; a short reference code (`CF-XXXXXXXX`) is shown to the reporter; a per-reporter idempotency key makes resubmits safe. Rules live in `src/domain/reports/`.
+- **Report** — category, description, location, status, reporter, assigned agency, timestamps. `jurisdiction_id` records the finest jurisdiction covering the point, for public area names (Phase 7); `resolved_at` is when it last entered `resolved`, cleared on dispute. Implemented (Phase 3) without the agency link, which arrives with routing. Location is `geography(Point, 4326)`; description is 10–1000 characters of sanitized plain text; a short reference code (`CF-XXXXXXXX`) is shown to the reporter; a per-reporter idempotency key makes resubmits safe. Rules live in `src/domain/reports/`.
 - **User** — email (lowercase, unique), role, optional agency. Implemented (Phase 2).
 - **Agency** — name, type (roads, drainage, water, power, waste, streetlights), contacts, jurisdiction(s). Implemented without contacts.
 - **Category** — name, default agency type, SLA policy. Implemented without SLA policy (Phase 5); the six launch categories are seeded by migration.
@@ -26,7 +26,8 @@ Who may perform each transition:
 - `submitted → routed`: system (routing) or a platform admin triaging. Agency admins cannot, since an unrouted report has no agency.
 - `routed → acknowledged`, `acknowledged → in_progress`, `in_progress → resolved`: staff of the assigned agency (or a platform admin).
 - `* → rejected`: agency staff of the assigned agency or a platform admin; a reason is required. Not allowed from `confirmed` or `rejected`.
-- `resolved → confirmed`, `resolved → disputed`: the reporting resident only (UI in Phase 7).
+- `resolved → confirmed`, `resolved → disputed`: the reporting resident only. A dispute requires a note (1 to 500 characters).
+- `resolved → confirmed` by the system: when a report has been `resolved` for more than 14 days with no answer (PROVISIONAL period, `docs/sla-and-escalation.md`). Reason "auto-confirmed after 14 days".
 - `disputed → in_progress`: staff of the assigned agency (or a platform admin).
 Reassignment (`docs/routing.md`) is a separate move that returns the report to `routed`. Unlisted transitions are rejected. A transition whose recorded `from` status no longer matches the report is rejected, so concurrent updates cannot both win.
 
