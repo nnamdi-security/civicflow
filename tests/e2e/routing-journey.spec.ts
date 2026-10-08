@@ -23,7 +23,7 @@ function databaseUrl() {
 
 // status_events and assignments reject DELETE, so tests clear them with TRUNCATE (test database only).
 async function clear() {
-  await pool.query("truncate table escalations, assignments, status_events, report_media, reports");
+  await pool.query("truncate table notifications, escalations, assignments, status_events, report_media, reports");
   await pool.query("delete from users where email like 'e2e-%-officer@example.com' or email like 'e2e-%-other-officer@example.com'");
   await pool.query("delete from agencies where name = any($1)", [[AGENCY_NAME, OTHER_AGENCY_NAME]]);
   await pool.query("delete from jurisdictions where name = 'E2E Nigeria'");

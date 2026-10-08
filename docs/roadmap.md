@@ -8,7 +8,7 @@ Status lives only in this file.
 - [x] Phase 3: Report submission (map, media upload). Not yet tested against a live Cloudinary account.
 - [x] Phase 4: Routing + state machine (routing verified only against sample and test polygons; real state/LGA boundaries still to import; duplicate detection deferred)
 - [x] Phase 5: SLA timers + escalation (pg-boss). SLA values and the escalation ladder are provisional placeholders (ADR 0010); escalations are recorded and displayed but not yet notified (Phase 6); worker hosting target undecided
-- [ ] Phase 6: Notifications (Resend, Termii)
+- [x] Phase 6: Notifications (Resend, Termii). Tested on fakes and the dev outbox only: no live Resend domain (SPF/DKIM) or Termii account (sender ID, DND routing) yet; "reply STOP" and staff "new report assigned" emails deferred
 - [ ] Phase 7: Tracking + resident confirmation
 - [ ] Phase 8: Agency dashboards, hardening, launch
 

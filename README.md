@@ -15,11 +15,11 @@ export TEST_DATABASE_URL=postgres://civicflow:civicflow_dev_only@localhost:5433/
 pnpm db:migrate
 pnpm db:seed        # optional: sample jurisdictions and agency (not real boundaries)
 pnpm dev            # http://localhost:3000, health check at /api/health
-pnpm worker         # separate process: runs the SLA escalation scan every minute (needs DATABASE_URL)
+pnpm worker         # separate process: SLA escalation scan and notification dispatch, every minute (needs DATABASE_URL)
 ```
 
 ## Signing in locally
-Without `RESEND_API_KEY`, sign-in emails are written to `.dev-outbox/` (gitignored) instead of being sent. Request a link at `/sign-in`, then run `pnpm dev:last-email` and open the link. Create the first platform admin with `pnpm admin:create you@example.com`, then sign in with that address.
+Without `RESEND_API_KEY`, sign-in emails are written to `.dev-outbox/` (gitignored) instead of being sent. Request a link at `/sign-in`, then run `pnpm dev:last-email` and open the link. Without Termii settings, SMS (including phone verification codes) goes to `.dev-outbox/sms.jsonl` instead; read the newest with `pnpm dev:last-sms`. Report notification emails and SMS are sent by `pnpm worker`. Create the first platform admin with `pnpm admin:create you@example.com`, then sign in with that address.
 
 ## Reporting locally
 Reports need a photo. Without Cloudinary credentials, photos go to a dev-only store in `.dev-media/` (gitignored; refuses to run in production), so the whole flow works with no accounts. Sign in, open `/report/new`, drop a pin, add a photo and submit.

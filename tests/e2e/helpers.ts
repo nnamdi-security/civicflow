@@ -50,3 +50,29 @@ export async function submitPothole(page: Page): Promise<string> {
   await page.waitForURL(/\/reports\/[0-9a-f-]{36}$/);
   return page.url();
 }
+
+interface OutboxLine {
+  to: string;
+  subject?: string;
+  text: string;
+}
+
+/** Reads a dev outbox file (emails.jsonl or sms.jsonl) as parsed lines, oldest first. */
+export async function readOutbox(file: "emails.jsonl" | "sms.jsonl"): Promise<OutboxLine[]> {
+  const raw = await readFile(path.join(process.cwd(), ".dev-outbox", file), "utf8").catch(() => "");
+  return raw
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as OutboxLine);
+}
+
+/** The newest SMS sent to `to`, waiting briefly for the app to write it. */
+export async function latestSms(to: string): Promise<OutboxLine> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const match = (await readOutbox("sms.jsonl")).filter((m) => m.to === to).at(-1);
+    if (match) return match;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error("No SMS arrived in the dev outbox");
+}

@@ -17,9 +17,11 @@ Adapter: `src/server/adapters/email/` (`EmailSender` interface, `ResendEmailSend
 ## Termii (SMS)
 Nigerian numbers in E.164 (+234). Sender ID registration required. Respect DND routes and opt-out. SMS is more expensive than email: reserve for key events.
 
-Consent, verification and which events send SMS: ADR 0012. Delivery path: ADR 0011. Adapter: `src/server/adapters/sms/` (`SmsSender` interface, Termii, dev outbox, fake). Not yet exercised against a live Termii account or a live Resend domain: sender ID approval, DND routing, delivery reports and SPF/DKIM must be checked before launch.
+Consent, verification and which events send SMS: ADR 0012. Delivery path: ADR 0011. Adapter: `src/server/adapters/sms/` (`SmsSender` interface, `TermiiSmsSender`, `DevOutboxSmsSender`, `FakeSmsSender`). Config: `TERMII_API_KEY` and `TERMII_SENDER_ID` (both or neither; sender IDs are at most 11 characters), optional `TERMII_BASE_URL` (default `https://api.ng.termii.com`; the base URL can differ per account) and `TERMII_CHANNEL` (`dnd` by default, which reaches numbers on the Do-Not-Disturb list; `generic` does not). Without them, development writes SMS to the gitignored `.dev-outbox/sms.jsonl` (read the newest with `pnpm dev:last-sms`), and production sends no SMS at all (SMS rows are skipped and phone verification says SMS is unavailable) instead of refusing to start. Not yet exercised against a live Termii account or a live Resend domain: sender ID approval, DND routing, delivery reports and SPF/DKIM must be checked before launch.
 
 ## Notifications (Phase 6)
+A report change writes outbox rows in its own transaction; the worker's `notification-dispatch` job (every minute) sends them through the adapters, retrying transient failures after 1, 5, 30 and 120 minutes (ADR 0011). Residents can switch off report emails and SMS in `/account`; staff escalation emails cannot be switched off. The worker needs `RESEND_API_KEY`/`EMAIL_FROM` (required in production) and `AUTH_URL` (the public base URL used in message links; required in production, defaults to `http://localhost:3000` in development).
+
 Templates live in code and are versioned; messages carry the reference code and a link, never the description or location. Events and recipients:
 
 | Event | Email | SMS |
