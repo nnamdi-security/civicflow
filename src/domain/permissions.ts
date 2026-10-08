@@ -46,6 +46,17 @@ export function canProvisionUser(actor: Actor, target: UserTarget): boolean {
   }
 }
 
+/** Any signed-in user may submit a report (ADR 0007); the role is recorded, not restricted. */
+export function canSubmitReport(actor: Actor): boolean {
+  switch (actor.role) {
+    case "resident":
+    case "agency_officer":
+    case "agency_admin":
+    case "platform_admin":
+      return true;
+  }
+}
+
 /** Creating agencies, jurisdictions, and coverage: platform admins only. */
 export function canManageAgencies(actor: Actor): boolean {
   return actor.role === "platform_admin";

@@ -3,6 +3,7 @@ import {
   agencyScopeFor,
   canManageAgencies,
   canProvisionUser,
+  canSubmitReport,
   canViewAgencyData,
   isConsistentTarget,
   type Actor,
@@ -69,6 +70,12 @@ describe("canProvisionUser", () => {
     expect(
       canProvisionUser(actor("agency_admin", null), { role: "agency_officer", agencyId: A }),
     ).toBe(false);
+  });
+});
+
+describe("canSubmitReport", () => {
+  it.each(ROLES)("allows %s", (role) => {
+    expect(canSubmitReport(actor(role))).toBe(true);
   });
 });
 
