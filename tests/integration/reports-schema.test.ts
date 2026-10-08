@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { agencies, assignments, categories, reportMedia, reports, statusEvents, users } from "@/db/schema";
+import { agencies, assignments, categories, escalations, reportMedia, reports, slaPolicies, statusEvents, users } from "@/db/schema";
 import { resetReports, setupTestDb } from "./test-db";
 
 let conn: Awaited<ReturnType<typeof setupTestDb>>;
@@ -163,5 +163,74 @@ describe("assignments", () => {
       conn.db.update(assignments).set({ reason: "edited" }).where(eq(assignments.id, row.id)),
     ).rejects.toThrow();
     await expect(conn.db.delete(assignments).where(eq(assignments.id, row.id))).rejects.toThrow();
+  });
+});
+
+describe("sla_policies", () => {
+  it("ships the provisional placeholder policy for every category (docs/sla-and-escalation.md)", async () => {
+    const rows = await conn.db
+      .select({ slug: categories.slug, ack: slaPolicies.ackMinutes, resolve: slaPolicies.resolveMinutes })
+      .from(slaPolicies)
+      .innerJoin(categories, eq(categories.id, slaPolicies.categoryId));
+    const hours = (h: number) => h * 60;
+    const days = (d: number) => d * 24 * 60;
+    expect(Object.fromEntries(rows.map((r) => [r.slug, [r.ack, r.resolve]]))).toEqual({
+      roads: [hours(24), days(14)],
+      drainage: [hours(24), days(7)],
+      water: [hours(12), days(3)],
+      power: [hours(12), days(3)],
+      waste: [hours(24), days(5)],
+      streetlights: [hours(48), days(14)],
+    });
+  });
+
+  it("rejects non-positive durations", async () => {
+    const [category] = await conn.db.select().from(categories).limit(1);
+    if (!category) throw new Error("category missing");
+    await expect(
+      conn.db.update(slaPolicies).set({ ackMinutes: 0 }).where(eq(slaPolicies.categoryId, category.id)),
+    ).rejects.toThrow();
+  });
+});
+
+describe("escalations", () => {
+  async function insertEscalation(reportId: string, overrides: Partial<typeof escalations.$inferInsert> = {}) {
+    const [row] = await conn.db
+      .insert(escalations)
+      .values({ reportId, timer: "acknowledge", level: 1, slaCycle: 1, ...overrides })
+      .returning();
+    if (!row) throw new Error("escalation not created");
+    return row;
+  }
+
+  it("accepts inserts but rejects updates and deletes", async () => {
+    const { report } = await createReport();
+    const row = await insertEscalation(report.id);
+    await expect(
+      conn.db.update(escalations).set({ level: 2 }).where(eq(escalations.id, row.id)),
+    ).rejects.toThrow();
+    await expect(conn.db.delete(escalations).where(eq(escalations.id, row.id))).rejects.toThrow();
+  });
+
+  it("allows each level once per report, timer and cycle, but again in a new cycle", async () => {
+    const { report } = await createReport();
+    await insertEscalation(report.id);
+    await expect(insertEscalation(report.id)).rejects.toThrow();
+    await insertEscalation(report.id, { slaCycle: 2 });
+    await insertEscalation(report.id, { timer: "resolve" });
+    await insertEscalation(report.id, { level: 2 });
+  });
+
+  it("rejects levels outside 1 to 3", async () => {
+    const { report } = await createReport();
+    await expect(insertEscalation(report.id, { level: 0 })).rejects.toThrow();
+    await expect(insertEscalation(report.id, { level: 4 })).rejects.toThrow();
+  });
+});
+
+describe("report SLA columns", () => {
+  it("start with no running timers in cycle 0", async () => {
+    const { report } = await createReport();
+    expect(report).toMatchObject({ ackDueAt: null, resolveDueAt: null, slaCycle: 0 });
   });
 });
