@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   agencyScopeFor,
   canManageAgencies,
+  canReassignReports,
+  canViewTriageQueue,
   canProvisionUser,
   canSubmitReport,
   canViewAgencyData,
@@ -111,5 +113,15 @@ describe("agencyScopeFor", () => {
 
   it("fails closed for agency staff without an agency", () => {
     expect(agencyScopeFor(actor("agency_officer", null))).toEqual({ kind: "none" });
+  });
+});
+
+describe("triage and reassignment roles", () => {
+  it("limits the triage queue to platform admins", () => {
+    expect(ROLES.filter((r) => canViewTriageQueue(actor(r)))).toEqual(["platform_admin"]);
+  });
+
+  it("limits reassignment to platform and agency admins", () => {
+    expect(ROLES.filter((r) => canReassignReports(actor(r)))).toEqual(["agency_admin", "platform_admin"]);
   });
 });

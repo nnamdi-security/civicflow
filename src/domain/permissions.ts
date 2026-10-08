@@ -87,3 +87,13 @@ export function agencyScopeFor(actor: Actor): AgencyScope {
       return { kind: "none" };
   }
 }
+
+/** The unrouted-reports queue: platform admins only. */
+export function canViewTriageQueue(actor: Actor): boolean {
+  return actor.role === "platform_admin";
+}
+
+/** Roles that may ever reassign; per-report authority is `validateReassignment`. */
+export function canReassignReports(actor: Actor): boolean {
+  return actor.role === "platform_admin" || actor.role === "agency_admin";
+}

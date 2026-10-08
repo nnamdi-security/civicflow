@@ -19,6 +19,7 @@ export function getCreateReportDeps(): CreateReportDeps {
   const db = getDb();
   return {
     db,
+    clock: systemClock,
     media: getMediaStorage(),
     limiter: new PostgresRateLimiter(db, systemClock),
     secret: parseMediaEnv(process.env).AUTH_SECRET,

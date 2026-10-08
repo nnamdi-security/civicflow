@@ -26,7 +26,7 @@ Who may perform each transition:
 - `* → rejected`: agency staff of the assigned agency or a platform admin; a reason is required. Not allowed from `confirmed` or `rejected`.
 - `resolved → confirmed`, `resolved → disputed`: the reporting resident only (UI in Phase 7).
 - `disputed → in_progress`: staff of the assigned agency (or a platform admin).
-Unlisted transitions are rejected. A transition whose recorded `from` status no longer matches the report is rejected, so concurrent updates cannot both win.
+Reassignment (`docs/routing.md`) is a separate move that returns the report to `routed`. Unlisted transitions are rejected. A transition whose recorded `from` status no longer matches the report is rejected, so concurrent updates cannot both win.
 
 ## PostGIS conventions
 - Store points as `geography(Point, 4326)`; boundaries as `geometry(MultiPolygon, 4326)` with GiST indexes.

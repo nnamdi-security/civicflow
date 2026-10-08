@@ -4,6 +4,8 @@ import {
   ALL_STATUS_PAIRS,
   MAX_REASON_LENGTH,
   allowedTargets,
+  REASSIGNABLE_STATUSES,
+  validateReassignment,
   validateTransition,
   type TransitionActor,
 } from "./transitions";
@@ -121,5 +123,40 @@ describe("rejection", () => {
     const r = (actor: TransitionActor) =>
       validateTransition({ from: "submitted", to: "rejected", actor, reportAgencyId: null, reason: "spam" }).ok;
     expect([r(platformAdmin), r(officer), r(system)]).toEqual([true, false, false]);
+  });
+});
+
+describe("reassignment", () => {
+  const ok = (from: ReportStatus, actor: TransitionActor, reportAgencyId: string | null = AGENCY) =>
+    validateReassignment({ from, actor, reportAgencyId }).ok;
+
+  it.each(REPORT_STATUSES)("is allowed from %s only if the status is reassignable", (from) => {
+    const result = validateReassignment({ from, actor: platformAdmin, reportAgencyId: null });
+    expect(result.ok).toBe(REASSIGNABLE_STATUSES.includes(from));
+    if (!result.ok) expect(result.denial).toBe("not_allowed");
+  });
+
+  it("always lands the report in routed", () => {
+    expect(validateReassignment({ from: "in_progress", actor: platformAdmin, reportAgencyId: AGENCY })).toEqual({
+      ok: true,
+      from: "in_progress",
+      to: "routed",
+    });
+  });
+
+  it("lets the holding agency admin and platform admin reassign a routed report", () => {
+    expect([ok("routed", agencyAdmin), ok("routed", platformAdmin)]).toEqual([true, true]);
+  });
+
+  it("denies officers, other agencies, residents and the system", () => {
+    for (const actor of [officer, otherOfficer, reporter, stranger, system]) {
+      expect(ok("routed", actor)).toBe(false);
+    }
+    const otherAdmin: TransitionActor = { kind: "user", role: "agency_admin", agencyId: OTHER, isReporter: false };
+    expect(ok("routed", otherAdmin)).toBe(false);
+  });
+
+  it("leaves triage (submitted) to platform admins", () => {
+    expect([ok("submitted", platformAdmin, null), ok("submitted", agencyAdmin, null)]).toEqual([true, false]);
   });
 });

@@ -47,6 +47,7 @@ beforeEach(async () => {
   media = new FakeMediaStorage();
   deps = {
     db: conn.db,
+    clock: fixedClock(new Date("2026-01-01T00:00:00Z")),
     media,
     limiter: new PostgresRateLimiter(conn.db, fixedClock(new Date("2026-01-01T00:00:00Z"))),
     secret: "s".repeat(32),

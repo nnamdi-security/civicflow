@@ -93,6 +93,44 @@ export function validateTransition(req: TransitionRequest): TransitionResult {
   return { ok: true, from: req.from, to: req.to, reason };
 }
 
+/** Statuses from which a report may be handed to a (different) agency. */
+export const REASSIGNABLE_STATUSES: readonly ReportStatus[] = [
+  "submitted",
+  "routed",
+  "acknowledged",
+  "in_progress",
+  "disputed",
+];
+
+export type ReassignmentDenial = "not_allowed" | "forbidden";
+
+export type ReassignmentResult =
+  | { ok: true; from: ReportStatus; to: "routed" }
+  | { ok: false; denial: ReassignmentDenial };
+
+/**
+ * Reassignment is its own move, not a table edge: from any reassignable status the report
+ * lands in `routed` with the new agency, which must acknowledge afresh (docs/routing.md).
+ * Unrouted reports (triage) are handled by platform admins only; routed ones by a platform
+ * admin or an agency admin of the agency that currently holds the report.
+ */
+export function validateReassignment(req: {
+  from: ReportStatus;
+  actor: TransitionActor;
+  reportAgencyId: string | null;
+}): ReassignmentResult {
+  if (!REASSIGNABLE_STATUSES.includes(req.from)) return { ok: false, denial: "not_allowed" };
+  const { actor, reportAgencyId } = req;
+  const mayAct =
+    isPlatformAdmin(actor) ||
+    (req.from !== "submitted" &&
+      actor.kind === "user" &&
+      actor.role === "agency_admin" &&
+      reportAgencyId !== null &&
+      actor.agencyId === reportAgencyId);
+  return mayAct ? { ok: true, from: req.from, to: "routed" } : { ok: false, denial: "forbidden" };
+}
+
 export const ALL_STATUS_PAIRS: ReadonlyArray<readonly [ReportStatus, ReportStatus]> = REPORT_STATUSES.flatMap(
   (from) => REPORT_STATUSES.map((to) => [from, to] as const),
 );

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Db } from "../../db/client";
+import type { Clock } from "../../domain/clock";
 import { uniqueViolationConstraint } from "../../db/errors";
 import { reportMedia, reports, statusEvents } from "../../db/schema";
 import { canSubmitReport } from "../../domain/permissions";
@@ -17,6 +18,7 @@ import {
 } from "../adapters/media/media-storage";
 import type { RateLimiter } from "../rate-limit/rate-limiter";
 import { rateLimitKey } from "../rate-limit/rate-limiter";
+import { routeNewReport } from "./route-report";
 import { findActiveCategory, findReportByIdempotencyKey, findUsedPublicIds } from "../repositories/reports";
 
 export const SUBMIT_RATE_RULES = {
@@ -28,6 +30,7 @@ const MAX_REFERENCE_ATTEMPTS = 5;
 
 export interface CreateReportDeps {
   db: Db;
+  clock: Clock;
   media: MediaStorage;
   limiter: RateLimiter;
   /** Keys rate-limit hashes. */
@@ -147,6 +150,8 @@ export async function createReport(
           toStatus: INITIAL_REPORT_STATUS,
           actorId: actor.userId,
         });
+        // ADR 0009: route in the same transaction. No match leaves it in the triage queue.
+        await routeNewReport(tx, deps.clock, row.id);
         return row;
       });
       // Phase 6: enqueue the "report received" notification here, in the same transaction.
