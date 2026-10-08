@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Button } from "@/components/button";
+import { safeRedirectPath } from "@/server/auth/redirect";
 import { getActor } from "@/server/auth/guards";
 import { requestSignIn } from "./actions";
 
@@ -11,12 +12,13 @@ const ERRORS: Record<string, string> = {
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
-  if (await getActor()) redirect("/account");
+  const params = await searchParams;
+  const next = safeRedirectPath(params.next);
+  if (await getActor()) redirect(next);
 
-  const { error } = await searchParams;
-  const message = error ? ERRORS[error] : undefined;
+  const message = params.error ? ERRORS[params.error] : undefined;
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 p-6">
@@ -28,6 +30,7 @@ export default async function SignInPage({
         </p>
       ) : null}
       <form action={requestSignIn} className="flex flex-col gap-3">
+        <input type="hidden" name="next" value={next} />
         <label htmlFor="email" className="font-medium">
           Email address
         </label>
