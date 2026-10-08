@@ -5,13 +5,16 @@ Nigerian civic issue reporting and accountability platform. Residents report inf
 Stack: Next.js, TypeScript (strict), PostgreSQL + PostGIS, Drizzle, Auth.js, pg-boss (jobs), Tailwind, Cloudinary, Resend, Termii, Leaflet/OpenStreetMap. Package manager: **pnpm**.
 
 ## Status
-Phase 1 scaffold done; no domain code yet. See `docs/roadmap.md`.
+Phases 1–2 done (scaffold, auth and roles, agency and jurisdiction data); no report domain code yet. See `docs/roadmap.md`.
 
 ## Commands
 - `pnpm dev` / `pnpm build`
 - `pnpm lint` / `pnpm typecheck` / `pnpm test`
 - `pnpm db:up` / `pnpm db:down` (local Postgres+PostGIS via Docker, ADR 0004)
 - `pnpm db:generate` / `pnpm db:migrate` (Drizzle)
+- `pnpm db:seed` (sample jurisdictions and agency, dev only)
+- `pnpm admin:create <email>` (bootstrap the first platform admin)
+- `pnpm dev:last-email` (read the newest sign-in email from `.dev-outbox/`)
 - Integration tests need `DATABASE_URL` and `TEST_DATABASE_URL` set (see README).
 
 ## Non-negotiables
@@ -31,3 +34,13 @@ Phase 1 scaffold done; no domain code yet. See `docs/roadmap.md`.
 - `docs/` — product, architecture, domain, SLA, routing, integrations, security, testing, roadmap, ADRs. Read the relevant file before working in that area.
 - `.claude/rules/` — path-scoped coding rules, loaded automatically.
 - `.claude/skills/` — repeatable workflows (`add-migration`, `new-feature-slice`, `add-notification-channel`, `sla-change-review`, `write-adr`).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
