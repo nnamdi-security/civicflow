@@ -20,5 +20,5 @@ export async function setupTestDb() {
  * only works with table-owner privileges (true for the test database, not for the app).
  */
 export async function resetReports(db: TestConnection["db"]) {
-  await db.execute(sql`truncate table status_events, report_media, reports`);
+  await db.execute(sql`truncate table assignments, status_events, report_media, reports`);
 }

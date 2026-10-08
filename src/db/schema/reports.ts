@@ -13,7 +13,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { REPORT_STATUSES } from "../../domain/reports/status";
-import { agencyTypeEnum } from "./agencies";
+import { agencies, agencyTypeEnum } from "./agencies";
 import { users } from "./auth";
 import { geographyPoint } from "./postgis";
 
@@ -46,6 +46,10 @@ export const reports = pgTable(
     description: text("description").notNull(),
     location: geographyPoint("location").notNull(),
     status: reportStatusEnum("status").notNull().default("submitted"),
+    /** Current agency; null while unrouted (the platform triage queue). History is in `assignments`. */
+    agencyId: uuid("agency_id").references(() => agencies.id),
+    /** When the report first reached `routed`; Phase 5 SLA timers start here. */
+    routedAt: timestamptz("routed_at"),
     /** Client-generated per form; a resubmit returns the existing report. */
     idempotencyKey: uuid("idempotency_key").notNull(),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
@@ -55,7 +59,12 @@ export const reports = pgTable(
     index("reports_status_idx").on(table.status),
     index("reports_reporter_created_idx").on(table.reporterId, table.createdAt),
     index("reports_category_idx").on(table.categoryId),
+    index("reports_agency_status_idx").on(table.agencyId, table.status),
     unique("reports_reporter_idempotency_unique").on(table.reporterId, table.idempotencyKey),
+    check(
+      "reports_routed_has_agency",
+      sql`${table.status} in ('submitted', 'rejected') or ${table.agencyId} is not null`,
+    ),
     check(
       "reports_description_length",
       sql`char_length(${table.description}) between 10 and 1000`,
@@ -101,4 +110,23 @@ export const statusEvents = pgTable(
     createdAt: timestamptz("created_at").notNull().defaultNow(),
   },
   (table) => [index("status_events_report_created_idx").on(table.reportId, table.createdAt)],
+);
+
+/** Append-only history of which agency a report was assigned to; a database trigger rejects UPDATE and DELETE. */
+export const assignments = pgTable(
+  "assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => reports.id),
+    agencyId: uuid("agency_id")
+      .notNull()
+      .references(() => agencies.id),
+    /** Null for automatic routing. */
+    assignedBy: uuid("assigned_by").references(() => users.id),
+    reason: text("reason"),
+    createdAt: timestamptz("created_at").notNull().defaultNow(),
+  },
+  (table) => [index("assignments_report_created_idx").on(table.reportId, table.createdAt)],
 );

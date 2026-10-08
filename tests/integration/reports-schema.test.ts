@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { categories, reportMedia, reports, statusEvents, users } from "@/db/schema";
+import { agencies, assignments, categories, reportMedia, reports, statusEvents, users } from "@/db/schema";
 import { resetReports, setupTestDb } from "./test-db";
 
 let conn: Awaited<ReturnType<typeof setupTestDb>>;
@@ -12,6 +12,7 @@ beforeAll(async () => {
 afterEach(async () => {
   await resetReports(conn.db);
   await conn.db.delete(users);
+  await conn.db.delete(agencies).where(eq(agencies.name, "Schema test agency"));
 });
 
 afterAll(async () => {
@@ -122,5 +123,45 @@ describe("status_events", () => {
     await expect(
       conn.db.delete(statusEvents).where(eq(statusEvents.id, event.id)),
     ).rejects.toThrow();
+  });
+});
+
+async function createAgency() {
+  const [agency] = await conn.db.insert(agencies).values({ name: "Schema test agency", type: "roads" }).returning();
+  if (!agency) throw new Error("agency not created");
+  return agency;
+}
+
+describe("routed reports need an agency", () => {
+  it("rejects a routed report with no agency", async () => {
+    const { report } = await createReport();
+    await expect(
+      conn.db.update(reports).set({ status: "routed" }).where(eq(reports.id, report.id)),
+    ).rejects.toThrow();
+  });
+
+  it("accepts a routed report with an agency, and a rejected one without", async () => {
+    const agency = await createAgency();
+    const routed = await createReport({ status: "routed", agencyId: agency.id, routedAt: new Date() });
+    expect(routed.report.agencyId).toBe(agency.id);
+    const rejected = await createReport({ status: "rejected" });
+    expect(rejected.report.agencyId).toBeNull();
+  });
+});
+
+describe("assignments", () => {
+  it("accepts inserts but rejects updates and deletes", async () => {
+    const agency = await createAgency();
+    const { report } = await createReport();
+    const [row] = await conn.db
+      .insert(assignments)
+      .values({ reportId: report.id, agencyId: agency.id, reason: "auto-routed" })
+      .returning();
+    if (!row) throw new Error("assignment not created");
+
+    await expect(
+      conn.db.update(assignments).set({ reason: "edited" }).where(eq(assignments.id, row.id)),
+    ).rejects.toThrow();
+    await expect(conn.db.delete(assignments).where(eq(assignments.id, row.id))).rejects.toThrow();
   });
 });
