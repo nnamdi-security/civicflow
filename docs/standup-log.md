@@ -2,7 +2,7 @@
 
 High-level, newest first. One entry per working day: what was done, what is next, and anything blocking. Commit hashes point to detail. Roadmap status lives in `roadmap.md`, not here.
 
-## 2026-10-09
+## 2026-10-08 (Phase 5)
 **Done**
 - Phase 5 (deadlines and escalation) completed, using provisional placeholder values until real SLA targets are decided.
   - Every routed report now has an acknowledgement deadline and a resolution deadline, taken from per-category policy (for example roads: 24 hours to acknowledge, 14 days to resolve).
@@ -22,7 +22,7 @@ High-level, newest first. One entry per working day: what was done, what is next
 
 Commits: `eef5efa`..latest (Phase 5).
 
-## 2026-10-08
+## 2026-10-08 (Phase 4)
 **Done**
 - Phase 4 (routing and status workflow) completed.
   - Report status state machine with role rules, tested for every status pair.
