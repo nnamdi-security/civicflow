@@ -5,7 +5,7 @@ Decisions and rationale: ADR 0009 (`docs/decisions/0009-routing-and-assignment.m
 ## Algorithm (draft)
 1. Find the jurisdiction containing the report point (PostGIS `ST_Covers`).
 2. Select agencies in that jurisdiction whose type matches the category.
-3. If several match, apply a deterministic tiebreak (most specific jurisdiction first, then configured priority, then agency id).
+3. If several match, apply a deterministic tiebreak (most specific jurisdiction first, then configured priority, then jurisdiction id, then agency id). "Most specific" is counted as fewest parent hops from the jurisdiction containing the point..
 4. If none match, fall back to the parent jurisdiction, then to a platform admin triage queue.
 
 ## Manual reassignment
