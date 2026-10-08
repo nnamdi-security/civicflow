@@ -9,6 +9,8 @@
 - **AgencyJurisdiction** — which jurisdictions an agency covers, with a priority (lower wins routing ties). Implemented (Phase 2).
 - **Assignment** — report-to-agency link with history (reassignments). Append-only; `reports.agency_id` holds the current agency (ADR 0009).
 - **StatusEvent** — append-only log of every status change (actor, from, to, reason, time). Implemented (Phase 3): a database trigger rejects UPDATE and DELETE. Every report starts with a null → `submitted` event written in the same transaction as the report.
+- **SlaPolicy** — acknowledge and resolve durations per category. Placeholder values (Phase 5, ADR 0010).
+- **Escalation** — append-only record that a report passed an escalation level for a timer in an SLA cycle. Unique per report, timer, level and cycle (Phase 5).
 - **Confirmation** — resident verdict on a resolution (confirmed/disputed, note).
 - **Media** — Cloudinary asset references for a report. Implemented (Phase 3): one to three photos per report, stored as provider `public_id` plus format, size and position (ADR 0008).
 
