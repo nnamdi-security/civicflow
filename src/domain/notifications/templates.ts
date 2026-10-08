@@ -137,3 +137,8 @@ export function renderSms(event: NotificationEvent, ctx: MessageContext): string
       return null;
   }
 }
+
+/** The phone verification text (ADR 0012). Short, plain ASCII, one segment. */
+export function renderVerificationSms(code: string, ttlMinutes: number): string {
+  return `CivicFlow: your code is ${code}. It expires in ${ttlMinutes} minutes. Do not share it.`;
+}

@@ -11,7 +11,15 @@ import {
 } from "./events";
 import { maskPhone, normalizeNigerianPhone } from "./phone";
 import { MAX_ATTEMPTS, RETRY_DELAYS_MINUTES, nextAttemptAt } from "./retry";
-import { SMS_MAX_LENGTH, renderEmail, renderSms, reportUrl, type MessageContext } from "./templates";
+import { SMS_MAX_LENGTH, renderEmail, renderSms, renderVerificationSms, reportUrl, type MessageContext } from "./templates";
+import {
+  CODE_LENGTH,
+  CODE_TTL_MINUTES,
+  codeExpiresAt,
+  generateVerificationCode,
+  isCodeExpired,
+  isValidCodeFormat,
+} from "./verification";
 
 const ID = "3f2b8c1e-9d4a-4b7e-8a61-0c5d2e7f9a10";
 const BASE = "https://civicflow.example.ng";
@@ -178,5 +186,48 @@ describe("retry schedule", () => {
   it("does not schedule for a nonsense attempt count", () => {
     expect(nextAttemptAt(0, clock)).toBeNull();
     expect(nextAttemptAt(-1, clock)).toBeNull();
+  });
+});
+
+describe("verification codes", () => {
+  it("are six digits and use only unbiased bytes", () => {
+    const calls: number[] = [];
+    // Bytes 250..255 must be skipped; 0..249 map to a digit by modulo 10.
+    const source = (length: number) => {
+      calls.push(length);
+      return Uint8Array.from([255, 254, 250, 7, 17, 249, 0, 123, 99, 1, 2, 3]);
+    };
+    const code = generateVerificationCode(source);
+    expect(code).toBe("779039");
+    expect(code).toHaveLength(CODE_LENGTH);
+  });
+
+  it("keeps asking for bytes until it has enough digits", () => {
+    let call = 0;
+    const source = () => (call++ === 0 ? Uint8Array.from([251, 252, 253]) : Uint8Array.from([1, 2, 3, 4, 5, 6]));
+    expect(generateVerificationCode(source)).toBe("123456");
+  });
+
+  it("expire strictly after ten minutes", () => {
+    const clock = fixedClock(new Date("2026-03-01T09:00:00Z"));
+    const expiresAt = codeExpiresAt(clock);
+    expect(expiresAt.toISOString()).toBe("2026-03-01T09:10:00.000Z");
+    expect(CODE_TTL_MINUTES).toBe(10);
+    clock.advance(10 * 60_000);
+    expect(isCodeExpired(expiresAt, clock)).toBe(false);
+    clock.advance(1000);
+    expect(isCodeExpired(expiresAt, clock)).toBe(true);
+  });
+
+  it("must be exactly six digits to be considered", () => {
+    expect(isValidCodeFormat("123456")).toBe(true);
+    for (const bad of ["12345", "1234567", "12345a", " 123456", ""]) expect(isValidCodeFormat(bad)).toBe(false);
+  });
+
+  it("fit in one SMS segment", () => {
+    const text = renderVerificationSms("123456", CODE_TTL_MINUTES);
+    expect(text).toContain("123456");
+    expect(text.length).toBeLessThanOrEqual(SMS_MAX_LENGTH);
+    expect(text).toMatch(/^[\x20-\x7E]+$/);
   });
 });
