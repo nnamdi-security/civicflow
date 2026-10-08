@@ -7,7 +7,7 @@
 - **Category** — name, default agency type, SLA policy. Implemented without SLA policy (Phase 5); the six launch categories are seeded by migration.
 - **Jurisdiction** — administrative boundary (state/LGA) as a PostGIS polygon, with an optional parent. Implemented (Phase 2).
 - **AgencyJurisdiction** — which jurisdictions an agency covers, with a priority (lower wins routing ties). Implemented (Phase 2).
-- **Assignment** — report-to-agency link with history (reassignments).
+- **Assignment** — report-to-agency link with history (reassignments). Append-only; `reports.agency_id` holds the current agency (ADR 0009).
 - **StatusEvent** — append-only log of every status change (actor, from, to, reason, time). Implemented (Phase 3): a database trigger rejects UPDATE and DELETE. Every report starts with a null → `submitted` event written in the same transaction as the report.
 - **Confirmation** — resident verdict on a resolution (confirmed/disputed, note).
 - **Media** — Cloudinary asset references for a report. Implemented (Phase 3): one to three photos per report, stored as provider `public_id` plus format, size and position (ADR 0008).
@@ -19,6 +19,14 @@ Roles: `resident`, `agency_officer`, `agency_admin`, `platform_admin` (`src/doma
 `submitted → routed → acknowledged → in_progress → resolved → confirmed`
 Also: `resolved → disputed → in_progress` (reopen), `* → rejected` (invalid/duplicate, with reason).
 Every transition is validated in the domain layer and writes a StatusEvent. Transition table lives in code and is tested exhaustively.
+
+Who may perform each transition:
+- `submitted → routed`: system (routing), or a platform/agency admin via reassignment.
+- `routed → acknowledged`, `acknowledged → in_progress`, `in_progress → resolved`: staff of the assigned agency (or a platform admin).
+- `* → rejected`: agency staff of the assigned agency or a platform admin; a reason is required. Not allowed from `confirmed` or `rejected`.
+- `resolved → confirmed`, `resolved → disputed`: the reporting resident only (UI in Phase 7).
+- `disputed → in_progress`: staff of the assigned agency (or a platform admin).
+Unlisted transitions are rejected. A transition whose recorded `from` status no longer matches the report is rejected, so concurrent updates cannot both win.
 
 ## PostGIS conventions
 - Store points as `geography(Point, 4326)`; boundaries as `geometry(MultiPolygon, 4326)` with GiST indexes.
