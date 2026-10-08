@@ -18,6 +18,8 @@
     "db:down": "docker compose down",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx scripts/seed-dev.ts",
+    "admin:create": "tsx scripts/create-admin.ts",
     "dev:last-email": "tsx scripts/last-email.ts"
   },
   "dependencies": {

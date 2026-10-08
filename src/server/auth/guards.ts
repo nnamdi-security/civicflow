@@ -1,22 +1,10 @@
 import type { Role } from "../../domain/roles";
+import { ForbiddenError, UnauthenticatedError } from "./errors";
 import { auth } from "./index";
 import { actorFromSession, type AuthenticatedActor } from "./session-user";
 
+export { ForbiddenError, UnauthenticatedError } from "./errors";
 export type { AuthenticatedActor } from "./session-user";
-
-export class UnauthenticatedError extends Error {
-  constructor() {
-    super("Not signed in");
-    this.name = "UnauthenticatedError";
-  }
-}
-
-export class ForbiddenError extends Error {
-  constructor() {
-    super("Not allowed");
-    this.name = "ForbiddenError";
-  }
-}
 
 export async function getActor(): Promise<AuthenticatedActor | null> {
   return actorFromSession(await auth());
