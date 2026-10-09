@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Db } from "../../db/client";
 import { accounts, sessions, users, verificationTokens } from "../../db/schema";
 import { signInEmail, type EmailSender } from "../adapters/email";
+import { logger } from "../logging/logger";
 import { rateLimitKey, type RateLimiter } from "../rate-limit/rate-limiter";
 import { SIGN_IN_LINK_MAX_AGE_SECONDS } from "./constants";
 import { toSessionUser } from "./session-user";
@@ -136,10 +137,10 @@ export function buildAuthConfig(deps: AuthDeps): NextAuthConfig {
     // Auth.js errors can embed addresses; log only the error type, never message or metadata.
     logger: {
       error(error) {
-        console.error(`[auth] ${error.name}`);
+        logger.error("auth.error", { errorName: error.name });
       },
       warn(code) {
-        console.warn(`[auth] ${code}`);
+        logger.warn("auth.warning", { warningCode: code });
       },
       debug() {},
     },

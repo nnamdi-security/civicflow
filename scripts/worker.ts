@@ -10,29 +10,41 @@ import { registerMediaCleanup } from "../src/server/jobs/media-cleanup-job";
 import { registerRetention } from "../src/server/jobs/retention-job";
 import { registerNotificationDispatch } from "../src/server/jobs/notification-dispatch-job";
 import { registerSlaScan } from "../src/server/jobs/sla-scan-job";
+import { errorFields, logger } from "../src/server/logging/logger";
 
-// Usage: pnpm worker   (needs DATABASE_URL). A long-running process: run exactly where the app can reach the database.
+/**
+ * The background worker: a separate, long-running process that runs the scheduled jobs (SLA scan,
+ * notification dispatch, auto-confirm, retention, photo cleanup). The website works without it,
+ * but deadlines are not enforced and no messages are sent while it is stopped.
+ *
+ * Usage: pnpm worker   (needs DATABASE_URL, AUTH_SECRET, and the same email/media settings as the web app).
+ * Run it exactly where it can reach the database.
+ *
+ * Logging: this process is unattended, so its output ends up in a log system. It therefore uses
+ * the structured logger, which writes one JSON line per event and automatically strips anything
+ * that looks like personal data (src/server/logging). Log counts and kinds of events, never people.
+ */
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
 
   const { db, pool } = createDb(url);
   const boss = new PgBoss(url);
-  boss.on("error", (error: Error) => console.error("pg-boss error:", error.message));
+  boss.on("error", (error: Error) => logger.error("worker.queue_error", errorFields(error)));
 
   await boss.start();
   await registerSlaScan(boss, {
     db,
     clock: systemClock,
     onScan: (result) => {
-      if (result.recorded > 0) console.log(`SLA scan recorded ${result.recorded} escalation(s)`);
+      if (result.recorded > 0) logger.info("sla_scan.recorded", { escalations: result.recorded });
     },
   });
   await registerAutoConfirm(boss, {
     db,
     clock: systemClock,
     onRun: (result) => {
-      if (result.confirmed > 0) console.log(`Auto-confirmed ${result.confirmed} resolved report(s)`);
+      if (result.confirmed > 0) logger.info("auto_confirm.confirmed", { reports: result.confirmed });
     },
   });
   await registerRetention(boss, {
@@ -41,7 +53,7 @@ async function main() {
     onRun: (result) => {
       // Counts only, never the deleted data.
       const total = Object.values(result).reduce((sum, n) => sum + n, 0);
-      if (total > 0) console.log(`Retention removed ${total} old record(s)`);
+      if (total > 0) logger.info("retention.removed", { total, ...result });
     },
   });
   await registerMediaCleanup(boss, {
@@ -49,9 +61,7 @@ async function main() {
     clock: systemClock,
     storage: createMediaStorage(parseMediaEnv(process.env)),
     onRun: (result) => {
-      if (result.deleted + result.retrying + result.failed > 0) {
-        console.log(`Photo cleanup: ${result.deleted} deleted, ${result.retrying} retrying, ${result.failed} failed`);
-      }
+      if (result.deleted + result.retrying + result.failed > 0) logger.info("media_cleanup.finished", { ...result });
     },
   });
   const sms = createSmsSender(parseSmsEnv(process.env));
@@ -63,16 +73,16 @@ async function main() {
     baseUrl: parseAppEnv(process.env).baseUrl,
     onDispatch: (result) => {
       const total = result.sent + result.retrying + result.failed + result.skipped;
-      if (total > 0) {
-        console.log(
-          `Notifications: ${result.sent} sent, ${result.retrying} retrying, ${result.failed} failed, ${result.skipped} skipped`,
-        );
-      }
+      if (total > 0) logger.info("notification_dispatch.finished", { ...result });
     },
   });
-  console.log(`Worker started: SLA scan and notification dispatch run every minute, auto-confirm hourly, retention daily, photo cleanup every 5 minutes${sms ? "" : " (SMS disabled)"}.`);
+  logger.info("worker.started", {
+    jobs: ["sla-scan", "notification-dispatch", "auto-confirm", "retention", "media-cleanup"],
+    smsEnabled: sms !== null,
+  });
 
   const shutdown = async () => {
+    logger.info("worker.stopping");
     await boss.stop();
     await pool.end();
     process.exit(0);
@@ -82,6 +92,6 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : "Worker failed");
+  logger.error("worker.failed_to_start", errorFields(error));
   process.exit(1);
 });

@@ -80,4 +80,4 @@ Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR
 Rate-limit submissions per account/IP, validate uploads, and sanitize all free text.
 
 ## Logging
-No PII, tokens, or phone numbers in logs.
+No PII, tokens, or phone numbers in logs. This is enforced by code, not only by habit: the worker and the Auth.js hook use the structured logger in `src/server/logging/`, which writes one JSON line per event and passes every field through `redact` first. It hides any field named like personal data or a secret (email, phone, name, token, password, description, location, free-text notes...) and replaces anything that merely *looks* like an email address, a phone number or a long secret inside text. Errors are logged as their kind plus a scrubbed message, never the stack. Tests try to sneak personal data through in many shapes. The rule for developers is still: log ids, counts and kinds of events, not people. The small command-line helpers (`pnpm admin:create`, `pnpm boundaries:import`...) print to the operator's own terminal and are not part of the collected logs.
