@@ -7,7 +7,7 @@ Signed uploads from the client. Limit file size and type (images only); store th
 
 Adapter: `src/server/adapters/media/` (`MediaStorage` interface, `CloudinaryMediaStorage`, `FakeMediaStorage`, and `DevMediaStorage`). Flow and rules: ADR 0008. Signing is hand-rolled and checked against the example in Cloudinary's signature documentation. Config: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (all three or none). Without them, development and tests use the local `DevMediaStorage` (files in the gitignored `.dev-media/`, served by `/api/dev-media/*`), which refuses to run when `NODE_ENV=production`; production refuses to start without Cloudinary. Allowed formats: jpg, png, webp, heic; at most 10 MB; the browser resizes to 1600 px first.
 
-Not yet exercised against a live Cloudinary account: real uploads, the metadata-stripping transformation, and the Admin API lookup. Do this before launch.
+Not yet exercised against a live Cloudinary account: real uploads, the metadata-stripping transformation, the Admin API lookup, and **photo deletion** (the signed `destroy` call with `invalidate`, used when a resident erases their account; ADR 0015). Deleting through the real API, and confirming the CDN stops serving a deleted photo, must be checked before launch. Deletions are queued in the database and retried by the worker (`media-cleanup`, every 5 minutes), so a provider outage delays but does not lose them; deletions that fail permanently stay in the queue with status `failed` for a person to investigate.
 
 ## Resend (email)
 Transactional only: sign-in link, report received, acknowledged, resolved, escalated. Templates versioned in code.
