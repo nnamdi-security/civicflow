@@ -24,6 +24,7 @@
     "worker": "tsx scripts/worker.ts",
     "dev:last-email": "tsx scripts/last-email.ts",
     "check:config": "tsx scripts/check-config.ts",
+    "volume:check": "tsx scripts/volume-check.ts",
     "dev:last-sms": "tsx scripts/last-sms.ts",
     "test:e2e": "playwright test"
   },

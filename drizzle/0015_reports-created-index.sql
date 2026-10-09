@@ -1,0 +1,1 @@
+CREATE INDEX "reports_created_idx" ON "reports" USING btree ("created_at" desc);

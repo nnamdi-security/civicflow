@@ -125,6 +125,35 @@ describe("runAutoConfirm: scope", () => {
   });
 });
 
+describe("runAutoConfirm: backlogs", () => {
+  /** Makes five reports that were resolved long enough ago to be due. */
+  async function fiveDueReports() {
+    const made = [];
+    for (let i = 0; i < 5; i++) made.push(await report({ resolvedAt: new Date(RESOLVED.getTime() - i * DAY) }));
+    return made;
+  }
+
+  it("works through several batches in one run, so a backlog clears quickly", async () => {
+    const made = await fiveDueReports();
+    // Batches of 2 would need three passes (2 + 2 + 1); the run does them all.
+    expect(await runAutoConfirm({ db: conn.db, clock: clockAfter(20 * DAY), batchSize: 2 })).toEqual({ confirmed: 5 });
+    for (const r of made) expect(await statusOf(r.id)).toBe("confirmed");
+  });
+
+  it("still bounds one run, leaving the rest for the next", async () => {
+    await fiveDueReports();
+    const options = { db: conn.db, clock: clockAfter(20 * DAY), batchSize: 2, maxBatches: 2 };
+    expect(await runAutoConfirm(options)).toEqual({ confirmed: 4 }); // 2 batches of 2
+    expect(await runAutoConfirm(options)).toEqual({ confirmed: 1 }); // the remainder
+    expect(await runAutoConfirm(options)).toEqual({ confirmed: 0 });
+  });
+
+  it("stops early when a batch is short, without asking again", async () => {
+    await report();
+    expect(await runAutoConfirm({ db: conn.db, clock: clockAfter(15 * DAY), batchSize: 5 })).toEqual({ confirmed: 1 });
+  });
+});
+
 describe("runAutoConfirm: safety", () => {
   it("does nothing on a second run", async () => {
     await report();

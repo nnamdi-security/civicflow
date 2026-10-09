@@ -105,6 +105,10 @@ export const reports = pgTable(
       sql`(${table.ackDueAt} is null and ${table.resolveDueAt} is null) or ${table.slaStartedAt} is not null`,
     ),
     index("reports_jurisdiction_idx").on(table.jurisdictionId),
+    // Lists of "the newest reports" (the platform admin's inbox, the triage queue) ask for the most
+    // recent 100 of potentially hundreds of thousands. This index lets the database read just the
+    // newest rows instead of scanning and sorting every report.
+    index("reports_created_idx").on(sql`${table.createdAt} desc`),
     index("reports_resolved_at_idx").on(table.resolvedAt).where(sql`${table.status} = 'resolved'`),
     check("reports_resolved_has_time", sql`${table.status} <> 'resolved' or ${table.resolvedAt} is not null`),
     unique("reports_reporter_idempotency_unique").on(table.reporterId, table.idempotencyKey),
