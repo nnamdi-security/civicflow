@@ -48,7 +48,7 @@ test.afterAll(async () => {
 test("a resident downloads their data, then erases their account, and what should remain remains", async ({ page, browser }) => {
   await stubMapTiles(page);
   await signInThroughEmail(page, RESIDENT, "/report/new");
-  const reportUrl = await submitPothole(page);
+  await submitPothole(page); // lands on the new report's page, whose heading gives us its reference
   const reference = (await page.getByRole("heading", { name: /^Report CF-/ }).textContent())?.replace("Report ", "").trim() ?? "";
 
   // ---- 1. Download a copy of their own data. ---------------------------------------------------
