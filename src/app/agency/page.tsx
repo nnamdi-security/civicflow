@@ -30,6 +30,11 @@ export default async function AgencyInboxPage() {
         </Link>
       ) : null}
       {canViewTriageQueue(actor) ? (
+        <Link href="/admin" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
+          Administration
+        </Link>
+      ) : null}
+      {canViewTriageQueue(actor) ? (
         <Link href="/admin/triage" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
           Unrouted reports (triage)
         </Link>
