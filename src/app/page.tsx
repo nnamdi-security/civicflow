@@ -16,6 +16,9 @@ export default function HomePage() {
         <Link href="/reports" className={linkClass}>
           My reports
         </Link>
+        <Link href="/track" className={linkClass}>
+          Track a report by its code
+        </Link>
         <Link href="/sign-in" className={linkClass}>
           Sign in
         </Link>
