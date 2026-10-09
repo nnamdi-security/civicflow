@@ -1,4 +1,5 @@
-import { index, integer, pgEnum, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { index, integer, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { AGENCY_TYPES, JURISDICTION_LEVELS } from "../../domain/agency-types";
 import { multiPolygon } from "./postgis";
@@ -6,12 +7,20 @@ import { multiPolygon } from "./postgis";
 export const agencyTypeEnum = pgEnum("agency_type", AGENCY_TYPES);
 export const jurisdictionLevelEnum = pgEnum("jurisdiction_level", JURISDICTION_LEVELS);
 
-export const agencies = pgTable("agencies", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  type: agencyTypeEnum("type").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
-});
+export const agencies = pgTable(
+  "agencies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    type: agencyTypeEnum("type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  },
+  (table) => [
+    // No two agencies may share a name, ignoring upper/lower case ("Lagos Roads" = "lagos roads").
+    // This also protects against two admins creating the same agency at the same moment.
+    uniqueIndex("agencies_name_unique").on(sql`lower(${table.name})`),
+  ],
+);
 
 export const jurisdictions = pgTable(
   "jurisdictions",

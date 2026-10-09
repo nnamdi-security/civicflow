@@ -1,4 +1,5 @@
 export * from "./agencies";
+export * from "./audit";
 export * from "./auth";
 export * from "./postgis";
 export * from "./rate-limits";

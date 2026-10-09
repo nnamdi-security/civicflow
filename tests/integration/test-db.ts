@@ -33,3 +33,13 @@ export async function resetReports(db: TestConnection["db"]) {
     sql`truncate table sla_outcomes, notifications, escalations, assignments, status_events, report_media, reports`,
   );
 }
+
+/**
+ * Empties the audit log. It is its own function because the audit log is not tied to reports:
+ * it points at the USERS who made administrative changes. Tests that exercise admin actions must
+ * call this before deleting their users, because Postgres will not delete a user that an audit
+ * row still points at (and the audit log refuses DELETE by design, so we use TRUNCATE).
+ */
+export async function resetAudit(db: TestConnection["db"]) {
+  await db.execute(sql`truncate table audit_log`);
+}

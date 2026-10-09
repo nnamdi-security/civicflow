@@ -109,3 +109,21 @@ export function canReassignReports(actor: Actor): boolean {
 export function canViewPerformance(actor: Actor): boolean {
   return actor.role === "platform_admin" || (actor.role === "agency_admin" && actor.agencyId !== null);
 }
+
+/**
+ * Editing SLA deadlines (ADR 0014). Platform admins only: these numbers decide when agencies are
+ * flagged as overdue, so they are not left to the agencies being measured.
+ */
+export function canManageSlaPolicy(actor: Actor): boolean {
+  return actor.role === "platform_admin";
+}
+
+/** Switching report categories on or off. Platform admins only. */
+export function canManageCategories(actor: Actor): boolean {
+  return actor.role === "platform_admin";
+}
+
+/** Reading the audit log. Platform admins only. */
+export function canViewAuditLog(actor: Actor): boolean {
+  return actor.role === "platform_admin";
+}

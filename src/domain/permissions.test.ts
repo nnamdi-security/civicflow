@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   agencyScopeFor,
   canManageAgencies,
+  canManageCategories,
+  canManageSlaPolicy,
   canReassignReports,
+  canViewAuditLog,
   canViewPerformance,
   canViewTriageQueue,
   canProvisionUser,
@@ -135,5 +138,15 @@ describe("canViewPerformance", () => {
   it("does not allow an agency admin who somehow has no agency", () => {
     // The database forbids this combination, but the rule should still fail safe if it ever appears.
     expect(canViewPerformance({ role: "agency_admin", agencyId: null })).toBe(false);
+  });
+});
+
+describe("administration permissions (platform admins only)", () => {
+  it.each([
+    ["canManageSlaPolicy", canManageSlaPolicy],
+    ["canManageCategories", canManageCategories],
+    ["canViewAuditLog", canViewAuditLog],
+  ])("%s allows only a platform admin", (_name, check) => {
+    expect(ROLES.filter((r) => check(actor(r)))).toEqual(["platform_admin"]);
   });
 });
