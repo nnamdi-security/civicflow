@@ -93,6 +93,8 @@ test("public pages are accessible", async ({ page }) => {
     ["/track", "track a report"],
     ["/track?error=invalid", "track a report (with an error message)"],
     ["/sign-in", "sign in"],
+    ["/privacy", "privacy notice"],
+    ["/terms", "terms of use"],
     ["/this-page-does-not-exist", "page not found"],
   ] as const) {
     await page.goto(path);

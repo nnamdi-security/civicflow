@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/button";
 import { safeRedirectPath } from "@/server/auth/redirect";
@@ -44,6 +45,17 @@ export default async function SignInPage({
         />
         <Button type="submit">Send sign-in link</Button>
       </form>
+      <p className="text-sm">
+        Read our{" "}
+        <Link href="/privacy" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
+          privacy notice
+        </Link>{" "}
+        and{" "}
+        <Link href="/terms" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
+          terms of use
+        </Link>
+        .
+      </p>
     </main>
   );
 }

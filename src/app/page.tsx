@@ -28,6 +28,12 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         <Link href="/sign-in" className={linkClass}>
           Sign in
         </Link>
+        <Link href="/privacy" className={linkClass}>
+          Privacy notice
+        </Link>
+        <Link href="/terms" className={linkClass}>
+          Terms of use
+        </Link>
       </nav>
     </main>
   );

@@ -37,3 +37,5 @@ Public pages: `/track` finds a report by its code and shows progress only (ADR 0
 Administration (platform admins): `/admin` links to agencies and coverage, SLA deadlines, report categories, the audit log and staff accounts (`/agency/staff`, also used by agency admins for their own officers). Agency admins and platform admins can open `/agency/performance` for SLA performance figures. See ADR 0014. The first platform admin is created with `pnpm admin:create <email>`.
 
 Privacy: every signed-in person can download a copy of their data from `/account`, and residents can erase their account there (ADR 0015). A background job removes old technical records daily, and another deletes erased accounts' photos from the media provider. All retention periods are provisional and should be reviewed by a data-protection adviser before launch.
+
+Operating and launching: `docs/runbook.md` (deploying, the worker, common problems, backups), `docs/launch-checklist.md` (every decision, account and real-world check still needed before launch), and `pnpm check:config` (validates production settings; never prints secrets). Hosting is undecided: see ADR 0016.

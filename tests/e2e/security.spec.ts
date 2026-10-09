@@ -146,3 +146,28 @@ test.describe("the not-found page", () => {
     await expect(page).toHaveURL(/\/sign-in/);
   });
 });
+
+test.describe("the privacy notice and terms", () => {
+  test("are reachable without signing in, and openly marked as drafts until reviewed", async ({ page }) => {
+    for (const [path, heading] of [
+      ["/privacy", "Privacy notice"],
+      ["/terms", "Terms of use"],
+    ] as const) {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
+      // The draft warning and the unfinished items are visible: nobody can mistake these for approved text.
+      await expect(page.getByRole("note")).toContainText("DRAFT FOR LEGAL REVIEW");
+      expect(await page.locator("main").innerText()).toContain("[PLACEHOLDER");
+    }
+  });
+
+  test("are linked from the home page and the sign-in page", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("link", { name: "Privacy notice" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Terms of use" })).toBeVisible();
+    await page.goto("/sign-in");
+    await expect(page.getByRole("link", { name: "privacy notice" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "terms of use" })).toBeVisible();
+  });
+});
