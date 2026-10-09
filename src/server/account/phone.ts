@@ -21,8 +21,17 @@ import type { RateLimiter } from "../rate-limit/rate-limiter";
 import { rateLimitKey } from "../rate-limit/rate-limiter";
 
 export const PHONE_RATE_RULES = {
+  /** Codes one ACCOUNT may request per hour. */
   hour: { limit: 3, windowMs: 60 * 60 * 1000 },
+  /** Codes one ACCOUNT may request per day. */
   day: { limit: 6, windowMs: 24 * 60 * 60 * 1000 },
+  /**
+   * Codes any ONE PHONE NUMBER may be sent per day, from all accounts together. Accounts are free
+   * to create (an email address is enough), so limiting only per account would let one person make
+   * many accounts and flood a victim's phone with texts, or run up the SMS bill ("SMS pumping").
+   * This cap protects the number itself.
+   */
+  number: { limit: 3, windowMs: 24 * 60 * 60 * 1000 },
 } as const;
 
 export interface PhoneDeps {
@@ -74,6 +83,11 @@ export async function startPhoneVerification(
   const key = rateLimitKey(deps.secret, "phone-verify", actor.userId);
   if (!(await deps.limiter.consume(key, PHONE_RATE_RULES.hour)).allowed) return { ok: false, reason: "rate_limited" };
   if (!(await deps.limiter.consume(`${key}:day`, PHONE_RATE_RULES.day)).allowed) return { ok: false, reason: "rate_limited" };
+  // The limit on the NUMBER itself, whoever asks. The key is a keyed hash of the number, so the
+  // limiter never stores the phone number. The refusal is the same "rate_limited" answer, so it
+  // does not say whether somebody else asked for that number.
+  const numberKey = rateLimitKey(deps.secret, "phone-verify-number", phone);
+  if (!(await deps.limiter.consume(numberKey, PHONE_RATE_RULES.number)).allowed) return { ok: false, reason: "rate_limited" };
 
   const code = generateVerificationCode(deps.randomBytes);
   const values = {

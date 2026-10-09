@@ -111,6 +111,40 @@ describe("startPhoneVerification", () => {
     expect(await startPhoneVerification(deps, bob, { phone: "0901 234 5678" })).toMatchObject({ ok: true });
   });
 
+  it("caps how many codes any one NUMBER receives per day, even from many different accounts", async () => {
+    // Several accounts (cheap to make) all try to text the SAME victim number.
+    const attackers: AuthenticatedActor[] = [alice, bob];
+    for (let i = 0; i < 3; i++) {
+      const [extra] = await conn.db.insert(users).values({ email: `attacker${i}@example.com` }).returning();
+      attackers.push({ userId: extra?.id ?? "", role: "resident", agencyId: null });
+    }
+    const results = [];
+    for (const attacker of attackers) results.push(await startPhoneVerification(deps, attacker, { phone: PHONE }));
+
+    expect(results.filter((r) => r.ok)).toHaveLength(PHONE_RATE_RULES.number.limit);
+    expect(results.filter((r) => !r.ok)).toEqual([
+      { ok: false, reason: "rate_limited" },
+      { ok: false, reason: "rate_limited" },
+    ]);
+    expect(sms.sent).toHaveLength(PHONE_RATE_RULES.number.limit); // the victim got at most 3 texts
+  });
+
+  it("does not let one number's limit affect other numbers", async () => {
+    for (let i = 0; i < PHONE_RATE_RULES.number.limit; i++) {
+      const [extra] = await conn.db.insert(users).values({ email: `spare${i}@example.com` }).returning();
+      await startPhoneVerification(deps, { userId: extra?.id ?? "", role: "resident", agencyId: null }, { phone: PHONE });
+    }
+    expect(await startPhoneVerification(deps, alice, { phone: PHONE })).toEqual({ ok: false, reason: "rate_limited" });
+    expect(await startPhoneVerification(deps, alice, { phone: "0901 234 5678" })).toMatchObject({ ok: true });
+  });
+
+  it("never stores the phone number in the limiter's keys", async () => {
+    await startPhoneVerification(deps, alice, { phone: PHONE });
+    const keys = (await conn.db.select({ key: rateLimits.key }).from(rateLimits)).map((r) => r.key).join(" ");
+    expect(keys).not.toContain("8031234567");
+    expect(keys).toContain("phone-verify-number");
+  });
+
   it("removes the pending code when the SMS cannot be sent", async () => {
     sms.failOnNextSend();
     expect(await startPhoneVerification(deps, alice, { phone: PHONE })).toEqual({ ok: false, reason: "delivery_failed" });

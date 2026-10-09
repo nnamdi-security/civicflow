@@ -1,4 +1,5 @@
 import { isAgencyRole, type Role } from "../roles";
+import { sanitizeDescription } from "./new-report";
 import { REPORT_STATUSES, type ReportStatus } from "./status";
 
 /** Who is attempting a transition. `system` is routing and (later) timers. */
@@ -88,7 +89,11 @@ export function validateTransition(req: TransitionRequest): TransitionResult {
   if (!isAllowedTransition(req.from, req.to)) return { ok: false, denial: "not_allowed" };
   if (!mayPerform(req)) return { ok: false, denial: "forbidden" };
 
-  const reason = req.reason?.trim() ? req.reason.trim() : null;
+  // Clean the note the same way as every other piece of free text (src/domain/reports/new-report.ts):
+  // invisible, control and direction-changing characters are removed, so a note cannot make a staff
+  // screen or an email show something other than what it says. Then an all-blank note counts as none.
+  const cleaned = req.reason ? sanitizeDescription(req.reason) : "";
+  const reason = cleaned === "" ? null : cleaned;
   // Rejecting and disputing both need a note, so the person on the other side knows why.
   if ((req.to === "rejected" || req.to === "disputed") && (reason === null || reason.length > MAX_REASON_LENGTH)) {
     return { ok: false, denial: "reason_required" };

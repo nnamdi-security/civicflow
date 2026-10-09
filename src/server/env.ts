@@ -99,6 +99,16 @@ export function parsePublicEnv(raw: Record<string, string | undefined>): { overd
   return { overdueBoard: env.PUBLIC_OVERDUE_BOARD === "true" };
 }
 
+const proxyEnvSchema = z.object({
+  // How many trusted proxies sit in front of the app (1 = one load balancer). See client-address.ts.
+  TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+});
+
+/** How many proxies to trust when reading the visitor's network address. Defaults to 1. */
+export function parseProxyEnv(raw: Record<string, string | undefined>): { trustedProxyHops: number } {
+  return { trustedProxyHops: parseWith(proxyEnvSchema, raw).TRUSTED_PROXY_HOPS };
+}
+
 const smsEnvSchema = z
   .object({
     TERMII_API_KEY: z.string().min(1).optional(),

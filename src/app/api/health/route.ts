@@ -16,26 +16,22 @@
  */
 import { sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { createDb } from "@/db/client";
 import { systemClock } from "@/domain/clock";
-import { parseEnv } from "@/server/env";
+import { getDb } from "@/server/db";
 import { getWorkerHealth } from "@/server/operations/health";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  let pool: ReturnType<typeof createDb>["pool"] | undefined;
   try {
-    const env = parseEnv(process.env);
-    const conn = createDb(env.DATABASE_URL);
-    pool = conn.pool;
-    await conn.db.execute(sql`select 1`);
-    const worker = await getWorkerHealth(conn.db, systemClock);
+    // The shared connection pool, NOT a new one per call. This endpoint is public and unthrottled,
+    // so opening a fresh pool each time would let anyone exhaust the database's connections.
+    const db = getDb();
+    await db.execute(sql`select 1`);
+    const worker = await getWorkerHealth(db, systemClock);
     return NextResponse.json({ status: "ok", worker }, { headers: { "Cache-Control": "no-store" } });
   } catch {
     // Deliberately no error detail: it could leak connection info.
     return NextResponse.json({ status: "error" }, { status: 503, headers: { "Cache-Control": "no-store" } });
-  } finally {
-    await pool?.end();
   }
 }

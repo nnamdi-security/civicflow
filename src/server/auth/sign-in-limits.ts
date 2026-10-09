@@ -1,18 +1,19 @@
 import { systemClock } from "../../domain/clock";
 import { getDb } from "../db";
-import { parseAuthEnv } from "../env";
+import { parseAuthEnv, parseProxyEnv } from "../env";
 import { PostgresRateLimiter } from "../rate-limit/postgres-rate-limiter";
 import { rateLimitKey, type RateLimiter } from "../rate-limit/rate-limiter";
+import { pickClientAddress } from "../security/client-address";
 
 export const IP_RATE_RULE = { limit: 20, windowMs: 15 * 60 * 1000 } as const;
 
 /**
- * Best-effort client address. Deployment is undecided (docs/roadmap.md), so this trusts the
- * proxy headers a typical platform sets; revisit when the hosting ADR is written.
+ * The visitor's network address as far as rate limiting is concerned. Reads the proxy headers
+ * safely: see src/server/security/client-address.ts for why only the proxy-written (right-hand)
+ * part of the forwarding header is believed, and `TRUSTED_PROXY_HOPS` for how many proxies to trust.
  */
 export function clientAddress(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return headers.get("x-real-ip") ?? forwarded ?? "unknown";
+  return pickClientAddress(headers, parseProxyEnv(process.env).trustedProxyHops);
 }
 
 /** Returns true if this client may start another sign-in attempt. */

@@ -130,6 +130,23 @@ export function checkProductionConfig(env: Env): ConfigFinding[] {
     findings.push(fail("TERMII_*", "Set both TERMII_API_KEY and TERMII_SENDER_ID, or neither."));
   }
 
+  // ---- Trusted proxies (decides whose network address the rate limits see) ----------------------
+  const hops = read(env, "TRUSTED_PROXY_HOPS");
+  if (hops === undefined) {
+    findings.push(
+      warn(
+        "TRUSTED_PROXY_HOPS",
+        "Not set: assuming exactly ONE trusted proxy in front of the app. Set it to the real number, or visitors' addresses (used by the rate limits) will be wrong.",
+      ),
+    );
+  } else if (!/^[0-5]$/.test(hops)) {
+    findings.push(fail("TRUSTED_PROXY_HOPS", "Must be a whole number from 0 to 5."));
+  } else if (hops === "0") {
+    findings.push(warn("TRUSTED_PROXY_HOPS", "0: network-address headers are ignored, so every visitor shares ONE rate-limit bucket."));
+  } else {
+    findings.push(pass("TRUSTED_PROXY_HOPS", `Set to ${hops}. Make sure this matches the real number of proxies in front of the app.`));
+  }
+
   // ---- Public overdue board ------------------------------------------------------------------
   const board = read(env, "PUBLIC_OVERDUE_BOARD");
   if (board === "true") {

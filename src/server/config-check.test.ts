@@ -19,6 +19,7 @@ const GOOD: Record<string, string> = {
   CLOUDINARY_API_SECRET: "fake-cloudinary-secret",
   TERMII_API_KEY: "TLfakekey",
   TERMII_SENDER_ID: "CivicFlow",
+  TRUSTED_PROXY_HOPS: "1",
 };
 
 const statusOf = (findings: ConfigFinding[], setting: string) => findings.find((f) => f.setting === setting)?.status;
@@ -84,6 +85,21 @@ describe("breaking one setting at a time", () => {
     expect(message).toContain("CLOUDINARY_API_KEY");
     expect(message).toContain("CLOUDINARY_API_SECRET");
     expect(message).not.toContain("CLOUDINARY_CLOUD_NAME");
+  });
+});
+
+describe("trusted proxies", () => {
+  it("warns when not set, because the default may not match the real deployment", () => {
+    const findings = check({ TRUSTED_PROXY_HOPS: undefined });
+    expect(statusOf(findings, "TRUSTED_PROXY_HOPS")).toBe("warn");
+    expect(isLaunchReady(findings)).toBe(true);
+  });
+
+  it("passes for a sensible value, warns for 0, and fails for nonsense", () => {
+    expect(statusOf(check({ TRUSTED_PROXY_HOPS: "1" }), "TRUSTED_PROXY_HOPS")).toBe("pass");
+    expect(statusOf(check({ TRUSTED_PROXY_HOPS: "2" }), "TRUSTED_PROXY_HOPS")).toBe("pass");
+    expect(statusOf(check({ TRUSTED_PROXY_HOPS: "0" }), "TRUSTED_PROXY_HOPS")).toBe("warn");
+    for (const bad of ["-1", "6", "one", "1.5"]) expect(failures(check({ TRUSTED_PROXY_HOPS: bad }))).toEqual(["TRUSTED_PROXY_HOPS"]);
   });
 });
 

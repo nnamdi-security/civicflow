@@ -569,6 +569,12 @@ describe("the resident's answer to a resolution", () => {
     expect(await listStatusHistory(conn.db, id).then((h) => h.at(-1)?.toStatus)).toBe("resolved");
   });
 
+  it("cleans invisible and direction-changing characters out of a reassignment reason", async () => {
+    const id = await submit();
+    await reassignReport({ db: conn.db, clock }, adminA, { reportId: id, agencyId: agencyB, reason: "wrong\u202E LGA\u200B" });
+    expect((await listStatusHistory(conn.db, id)).at(-1)?.reason).toBe("reassigned: wrong LGA");
+  });
+
   it("stores the trimmed dispute note in the history and tells the agency admins", async () => {
     const id = await resolvedReport();
     await changeReportStatus(deps, resident, to(id, "disputed", "  still a hole by the gate  "));

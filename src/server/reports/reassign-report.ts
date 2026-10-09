@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Db } from "../../db/client";
 import type { Clock } from "../../domain/clock";
 import { canReassignReports } from "../../domain/permissions";
+import { sanitizeDescription } from "../../domain/reports/new-report";
 import { MAX_REASON_LENGTH, validateReassignment } from "../../domain/reports/transitions";
 import { ForbiddenError, UnauthenticatedError } from "../auth/errors";
 import type { AuthenticatedActor } from "../auth/session-user";
@@ -56,7 +57,9 @@ export async function reassignReport(
   if (report.agencyId === input.agencyId) return { ok: false, reason: "same_agency" };
   if (!(await agencyExists(deps.db, input.agencyId))) return { ok: false, reason: "unknown_agency" };
 
-  const reason = input.reason ? `reassigned: ${input.reason}` : "reassigned";
+  // Same cleaning as other free text: no invisible or direction-changing characters.
+  const note = input.reason ? sanitizeDescription(input.reason) : "";
+  const reason = note ? `reassigned: ${note}` : "reassigned";
   const applied = await deps.db.transaction(async (tx) => {
     const moved = await applyStatusChange(
       tx,

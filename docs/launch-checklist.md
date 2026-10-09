@@ -65,7 +65,12 @@ The automated check passes on every page, but it finds only part of the problems
 
 ## 6. Security
 
-- [ ] The security review (run at the end of Part B) has no unresolved findings.
+- [ ] `TRUSTED_PROXY_HOPS` is set to the real number of proxies, and verified on staging with two different clients (they must get different rate-limit buckets, and a forged `X-Forwarded-For` must not help).
+- [ ] The app and worker connect with a **database role that cannot alter tables or triggers or truncate**; only deployments use the owner role (docs/security-review.md, residual risk 2).
+- [ ] Decide whether erasure and other high-impact actions should require a fresh sign-in (residual risk 3).
+- [ ] An independent penetration test and a data-protection impact assessment are planned (at least before opening beyond the pilot).
+
+- [ ] The residual risks in `docs/security-review.md` have each been accepted or fixed by a named person.
 - [ ] `pnpm audit --prod` is clean (it runs in CI).
 - [ ] Secrets are only in the hosting platform's secret store, nowhere in code or chat.
 - [ ] Production log access is restricted and retention is short (runbook section 11).

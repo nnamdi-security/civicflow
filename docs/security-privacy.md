@@ -7,7 +7,7 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 - Email magic link only for now; links expire after 15 minutes and work once (ADR 0005).
 - Database sessions: roles are read from the user row on every request, so role changes and revocation apply immediately.
 - Staff accounts are pre-provisioned by a platform admin (or an agency admin for officers in their own agency). Provisioning never modifies an existing account. The first platform admin is created from the command line (`pnpm admin:create`).
-- Sign-in emails are rate limited per address (3 per 15 minutes) and per client address (20 per 15 minutes); counters use keyed hashes, never raw emails or IPs (ADR 0006). Client-address detection depends on the hosting setup, which is still undecided.
+- Sign-in emails are rate limited per address (3 per 15 minutes) and per client address (20 per 15 minutes); counters use keyed hashes, never raw emails or IPs (ADR 0006). The client address is read from the proxy-written (right-hand) end of `X-Forwarded-For`, counting `TRUSTED_PROXY_HOPS` proxies; the left-hand end is written by the visitor and is never trusted. The setting must match the real hosting setup (see `docs/security-review.md`).
 - Auth.js logging is restricted to error type names so addresses never reach logs.
 
 ## Personal data (NDPA)
@@ -17,6 +17,7 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 - Treat photo EXIF and precise home-adjacent locations as sensitive.
 
 ## Notifications and phone numbers (Phase 6)
+- A phone number is personal data. Verification texts are limited per account **and** per phone number (3 per day across all accounts), so a number cannot be flooded by creating accounts.
 - A phone number is personal data. It is stored only after the user adds it, is used for SMS only after verification by a texted code (hashed, expiring, attempt-limited), and can be removed at any time (ADR 0012).
 - Notification rows hold ids, channel, status and error codes only. Message bodies, addresses and phone numbers are never stored in them or written to logs (ADR 0011).
 - Messages carry the reference code and a link, never the description or the location.

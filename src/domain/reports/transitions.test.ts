@@ -110,6 +110,24 @@ describe("who may transition", () => {
   });
 });
 
+describe("notes are cleaned like all other free text", () => {
+  const note = (reason: string) =>
+    validateTransition({ from: "routed", to: "rejected", actor: officer, reportAgencyId: AGENCY, reason });
+
+  it("removes invisible, control and direction-changing characters", () => {
+    // U+202E flips text direction, U+200B is a zero-width space, \u0000 is a control character.
+    expect(note("not\u202E a civic\u200B issue\u0000")).toMatchObject({ ok: true, reason: "not a civic issue" });
+  });
+
+  it("counts a note made only of invisible characters as no note at all", () => {
+    expect(note("\u200B\u202E  \u0000")).toEqual({ ok: false, denial: "reason_required" });
+  });
+
+  it("keeps ordinary line breaks and emoji", () => {
+    expect(note("line one\nline two \u{1F6A7}")).toMatchObject({ ok: true, reason: "line one\nline two \u{1F6A7}" });
+  });
+});
+
 describe("dispute note", () => {
   const dispute = (reason?: string | null) =>
     validateTransition({ from: "resolved", to: "disputed", actor: reporter, reportAgencyId: AGENCY, reason });

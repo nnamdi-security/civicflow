@@ -26,6 +26,10 @@ pnpm check:config
 
 It prints PASS, WARN or FAIL for each setting and exits with an error if anything must be fixed. It never prints a secret's value.
 
+Two settings people often get wrong:
+- `AUTH_URL` must be the real public https address, or every emailed link is broken.
+- `TRUSTED_PROXY_HOPS` is how many proxies (the hosting platform's load balancer counts as one) sit in front of the app. The visitor's address, used by the rate limits, is read that many places in from the right of the `X-Forwarded-For` header, because the left side is written by the visitor and can be forged. Too small and attackers can bypass the limits; too large and visitors share one bucket. Check it on staging.
+
 ## 3. First deployment
 
 1. Create the PostgreSQL database with the PostGIS extension available. The first migration enables PostGIS, so the database user must be allowed to create extensions (or an administrator must enable it once).
