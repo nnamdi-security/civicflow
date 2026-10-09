@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
+import { Button } from "@/components/button";
 import { SlaNotice } from "@/components/sla-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { StatusHistory } from "@/components/status-history";
@@ -11,6 +12,8 @@ import { getDb } from "@/server/db";
 import { listStatusHistory } from "@/server/repositories/report-workflow";
 import { findReportForReporter } from "@/server/repositories/reports";
 import { getMediaStorage } from "@/server/reports/deps";
+import { answerResolutionAction } from "./actions";
+import { noticeFor } from "./messages";
 
 const dateTimeFormat = new Intl.DateTimeFormat("en-NG", {
   dateStyle: "medium",
@@ -18,8 +21,15 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-NG", {
   timeZone: "Africa/Lagos",
 });
 
-export default async function ReportDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ReportDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ notice?: string }>;
+}) {
   const { id } = await params;
+  const { notice } = await searchParams;
   const actor = await getActor();
   if (!actor) redirect(`/sign-in?next=${encodeURIComponent(`/reports/${id}`)}`);
 
@@ -29,6 +39,7 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
   if (!report) notFound();
 
   const history = await listStatusHistory(getDb(), report.id);
+  const message = noticeFor(notice);
   const media = getMediaStorage();
   const mapLink = `https://www.openstreetmap.org/?mlat=${report.lat}&mlon=${report.lon}#map=17/${report.lat}/${report.lon}`;
 
@@ -42,6 +53,38 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
         <StatusBadge status={report.status} />
         <span>Sent {dateTimeFormat.format(report.createdAt)}</span>
       </p>
+
+      {message ? (
+        <p role={message.ok ? "status" : "alert"} className="rounded-md border border-current p-3">
+          {message.ok ? "" : "Error: "}
+          {message.text}
+        </p>
+      ) : null}
+
+      {report.status === "resolved" ? (
+        <form action={answerResolutionAction} className="flex flex-col gap-3 rounded-md border border-current p-3">
+          <h2 className="text-lg font-semibold">Has this been fixed?</h2>
+          <p>The agency says it has dealt with this problem. Please check the location and tell us.</p>
+          <input type="hidden" name="reportId" value={report.id} />
+          <label className="flex flex-col gap-1">
+            <span className="font-medium">If it is not fixed, what is still wrong? (required to say it is not fixed)</span>
+            <textarea
+              name="reason"
+              rows={3}
+              maxLength={500}
+              className="min-h-11 rounded-md border border-current bg-transparent px-3 py-2"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" name="answer" value="confirmed">
+              Yes, it is fixed
+            </Button>
+            <Button type="submit" name="answer" value="disputed">
+              No, it is not fixed
+            </Button>
+          </div>
+        </form>
+      ) : null}
 
       <SlaNotice
         overdue={overdueTimers(report, systemClock)}
@@ -58,6 +101,31 @@ export default async function ReportDetailPage({ params }: { params: Promise<{ i
         <div>
           <dt className="font-medium">Handled by</dt>
           <dd>{report.agencyName ?? "Not assigned to an agency yet"}</dd>
+        </div>
+        {report.ackDueAt ? (
+          <div>
+            <dt className="font-medium">Agency should acknowledge by</dt>
+            <dd>
+              <time dateTime={report.ackDueAt.toISOString()}>{dateTimeFormat.format(report.ackDueAt)}</time>
+            </dd>
+          </div>
+        ) : null}
+        {report.resolveDueAt ? (
+          <div>
+            <dt className="font-medium">Agency should resolve by</dt>
+            <dd>
+              <time dateTime={report.resolveDueAt.toISOString()}>{dateTimeFormat.format(report.resolveDueAt)}</time>
+            </dd>
+          </div>
+        ) : null}
+        <div>
+          <dt className="font-medium">Public tracking page</dt>
+          <dd>
+            <Link href={`/track/${report.reference}`} className="underline">
+              /track/{report.reference}
+            </Link>{" "}
+            (shows progress only, never your details)
+          </dd>
         </div>
         <div>
           <dt className="font-medium">Description</dt>

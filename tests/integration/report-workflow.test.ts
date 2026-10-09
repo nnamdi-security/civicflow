@@ -558,3 +558,49 @@ describe("area and resolved time (ADR 0013)", () => {
     expect((await row(id))?.resolvedAt).toEqual(stamped);
   });
 });
+
+describe("the resident's answer to a resolution", () => {
+  it("asks for a note to dispute, changing nothing without one", async () => {
+    const id = await resolvedReport();
+    expect(await changeReportStatus(deps, resident, to(id, "disputed"))).toEqual({ ok: false, reason: "reason_required" });
+    expect(await changeReportStatus(deps, resident, to(id, "disputed", "   "))).toEqual({ ok: false, reason: "reason_required" });
+    expect(await statusOf(id)).toBe("resolved");
+    expect(await listStatusHistory(conn.db, id).then((h) => h.at(-1)?.toStatus)).toBe("resolved");
+  });
+
+  it("stores the trimmed dispute note in the history and tells the agency admins", async () => {
+    const id = await resolvedReport();
+    await changeReportStatus(deps, resident, to(id, "disputed", "  still a hole by the gate  "));
+    expect((await listStatusHistory(conn.db, id)).at(-1)).toMatchObject({ toStatus: "disputed", reason: "still a hole by the gate" });
+  });
+
+  it("makes a second tap on 'it is fixed' harmless", async () => {
+    const id = await resolvedReport();
+    expect(await changeReportStatus(deps, resident, to(id, "confirmed"))).toEqual({ ok: true, status: "confirmed" });
+    expect(await changeReportStatus(deps, resident, to(id, "confirmed"))).toEqual({ ok: false, reason: "not_allowed" });
+    expect((await listStatusHistory(conn.db, id)).filter((h) => h.toStatus === "confirmed")).toHaveLength(1);
+  });
+
+  it("lets only one of confirm and dispute win when both are sent at once", async () => {
+    const id = await resolvedReport();
+    const results = await Promise.all([
+      changeReportStatus(deps, resident, to(id, "confirmed")),
+      changeReportStatus(deps, resident, to(id, "disputed", "still broken")),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(["confirmed", "disputed"]).toContain(await statusOf(id));
+  });
+
+  it("is only for the reporter: another resident and staff cannot answer for them", async () => {
+    const id = await resolvedReport();
+    expect(await changeReportStatus(deps, otherResident, to(id, "confirmed"))).toEqual({ ok: false, reason: "not_found" });
+    expect(await changeReportStatus(deps, officerA, to(id, "confirmed"))).toEqual({ ok: false, reason: "forbidden" });
+    expect(await changeReportStatus(deps, platform, to(id, "disputed", "x"))).toEqual({ ok: false, reason: "forbidden" });
+    expect(await statusOf(id)).toBe("resolved");
+  });
+
+  it("cannot be answered before the report is resolved", async () => {
+    const id = await submit();
+    expect(await changeReportStatus(deps, resident, to(id, "confirmed"))).toEqual({ ok: false, reason: "not_allowed" });
+  });
+});
