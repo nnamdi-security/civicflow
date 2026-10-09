@@ -133,7 +133,8 @@ test("a resident disputes a resolution, then confirms the second fix, and the pu
     expect(body).not.toContain(secret);
   }
   expect(body).not.toMatch(/\d{1,2}\.\d{4,}/); // no coordinates
-  await expect(visitor.getByRole("img")).toHaveCount(0); // no photos
+  // No photos. Scoped to <main> because the dev server can overlay its own badge outside the page content.
+  await expect(visitor.locator("main").getByRole("img")).toHaveCount(0);
 
   // Unknown and malformed codes are plain 404s, and a bad code in the form is explained.
   expect((await visitor.goto("/track/CF-ZZZZZZZZ"))?.status()).toBe(404);

@@ -2,6 +2,24 @@
 
 High-level, newest first. One entry per working day: what was done, what is next, and anything blocking. Commit hashes point to detail. Roadmap status lives in `roadmap.md`, not here.
 
+## 2026-10-09 (Phase 8, Part B)
+**Done**
+- Phase 8 Part B (hardening and launch readiness) completed.
+  - Security: strict browser protections (content security policy and other headers), friendly error pages that reveal nothing about hidden reports, and automated accessibility checks on every page.
+  - Privacy: residents can download their data and erase their own account (identity removed, locations blurred, photos queued for deletion); old technical records are tidied automatically (ADR 0015).
+  - Operations: a background-job health page, a worker status on the public health check, and logging that automatically removes personal data. A configuration checker (`pnpm check:config`) catches unsafe production settings.
+  - Data tools: a boundary importer for real state and LGA maps.
+  - Launch documents: runbook, launch checklist, hosting options (ADR 0016), and DRAFT privacy notice and terms (need legal review).
+  - Volume check: tested with 50,000 invented reports. Every screen responds in under 0.2 seconds. Found and fixed one slow list (platform admin inbox, 34 ms to 4 ms) and made the automatic confirmation job clear backlogs faster. See `docs/performance.md`.
+  - Security review (`docs/security-review.md`): fixed four real weaknesses: rate limits could be bypassed by forging a network-address header; text messages to one phone number could be flooded through many accounts; the public health check could exhaust database connections; staff notes were not cleaned of misleading invisible characters.
+
+**Next**
+- Your decisions and real-world checks in `docs/launch-checklist.md` (real deadlines, hosting, boundary data, legal text, email/SMS/photo accounts). Recommend a one-agency pilot.
+
+**Blockers / risks**
+- Live email, SMS and photo services are untested; the legal pages are drafts; hosting is undecided.
+- Before launch: set `TRUSTED_PROXY_HOPS` correctly for the host, and run the app with a database role that cannot alter tables (see security review, residual risks).
+
 ## 2026-10-09 (Phase 8, Part A)
 **Done**
 - Phase 8 Part A (agency dashboards and administration) completed. Part B (hardening and launch readiness) is next, after your review.
