@@ -16,7 +16,7 @@ pnpm db:migrate
 pnpm db:seed        # optional: sample jurisdictions and agency (not real boundaries)
 pnpm boundaries:import <file> --level state|lga --name-field <prop> --dry-run   # load real boundaries; see docs/routing.md
 pnpm dev            # http://localhost:3000, health check at /api/health
-pnpm worker         # separate process: SLA escalation scan and notification dispatch every minute, auto-confirm hourly (needs DATABASE_URL)
+pnpm worker         # separate process: SLA scan and notification dispatch every minute, auto-confirm hourly, photo cleanup every 5 min, retention daily (needs DATABASE_URL and AUTH_SECRET, plus the email/media settings the web app uses)
 ```
 
 ## Signing in locally

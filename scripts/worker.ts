@@ -2,9 +2,11 @@ import { PgBoss } from "pg-boss";
 import { createDb } from "../src/db/client";
 import { systemClock } from "../src/domain/clock";
 import { createEmailSender } from "../src/server/adapters/email";
+import { createMediaStorage } from "../src/server/adapters/media";
 import { createSmsSender } from "../src/server/adapters/sms";
-import { parseAppEnv, parseEmailEnv, parseSmsEnv } from "../src/server/env";
+import { parseAppEnv, parseEmailEnv, parseMediaEnv, parseSmsEnv } from "../src/server/env";
 import { registerAutoConfirm } from "../src/server/jobs/auto-confirm-job";
+import { registerMediaCleanup } from "../src/server/jobs/media-cleanup-job";
 import { registerRetention } from "../src/server/jobs/retention-job";
 import { registerNotificationDispatch } from "../src/server/jobs/notification-dispatch-job";
 import { registerSlaScan } from "../src/server/jobs/sla-scan-job";
@@ -42,6 +44,16 @@ async function main() {
       if (total > 0) console.log(`Retention removed ${total} old record(s)`);
     },
   });
+  await registerMediaCleanup(boss, {
+    db,
+    clock: systemClock,
+    storage: createMediaStorage(parseMediaEnv(process.env)),
+    onRun: (result) => {
+      if (result.deleted + result.retrying + result.failed > 0) {
+        console.log(`Photo cleanup: ${result.deleted} deleted, ${result.retrying} retrying, ${result.failed} failed`);
+      }
+    },
+  });
   const sms = createSmsSender(parseSmsEnv(process.env));
   await registerNotificationDispatch(boss, {
     db,
@@ -58,7 +70,7 @@ async function main() {
       }
     },
   });
-  console.log(`Worker started: SLA scan and notification dispatch run every minute, auto-confirm hourly, retention daily${sms ? "" : " (SMS disabled)"}.`);
+  console.log(`Worker started: SLA scan and notification dispatch run every minute, auto-confirm hourly, retention daily, photo cleanup every 5 minutes${sms ? "" : " (SMS disabled)"}.`);
 
   const shutdown = async () => {
     await boss.stop();

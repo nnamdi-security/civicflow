@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { systemClock, type Clock } from "../../../domain/clock";
 import { MEDIA_MAX_BYTES, isOwnedPublicId, reporterFolder } from "../../../domain/reports/media";
@@ -108,6 +108,19 @@ export class DevMediaStorage implements MediaStorage {
 
   imageUrl(publicId: string): string {
     return `/api/dev-media/file?id=${encodeURIComponent(publicId)}`;
+  }
+
+  /**
+   * Deletes a locally stored photo (its image file and its small description file). Safe to
+   * repeat: `force: true` means "no error if the file is already gone". The id is checked against
+   * the strict shape this store generates BEFORE any file path is built, so an id like
+   * "../../etc/passwd" can never delete anything; an id of the wrong shape simply matches nothing.
+   */
+  async deleteAsset(publicId: string): Promise<void> {
+    if (!DEV_PUBLIC_ID.test(publicId)) return;
+    const target = this.fileFor(publicId);
+    await rm(`${target}.bin`, { force: true });
+    await rm(`${target}.json`, { force: true });
   }
 
   /** For the dev file route. The id must match the strict shape we generate. */

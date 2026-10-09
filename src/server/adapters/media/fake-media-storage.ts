@@ -1,5 +1,6 @@
 import { reporterFolder } from "../../../domain/reports/media";
 import {
+  MediaDeletionError,
   MediaVerificationError,
   assertValidAsset,
   type MediaStorage,
@@ -12,6 +13,9 @@ export class FakeMediaStorage implements MediaStorage {
   private readonly assets = new Map<string, UploadedAsset>();
   private counter = 0;
   unavailable = false;
+  /** Every photo id deleted so far, in order. Tests check this. */
+  readonly deleted: string[] = [];
+  private deletionFailures: Array<{ retryable: boolean }> = [];
 
   simulateUpload(
     reporterId: string,
@@ -47,5 +51,18 @@ export class FakeMediaStorage implements MediaStorage {
 
   imageUrl(publicId: string, options: { width: number }): string {
     return `https://fake.invalid/w_${options.width}/${publicId}`;
+  }
+
+  /** The next deletion fails; retryable by default, like a provider outage. */
+  failNextDeletion(options: { retryable?: boolean } = {}): void {
+    this.deletionFailures.push({ retryable: options.retryable ?? true });
+  }
+
+  async deleteAsset(publicId: string): Promise<void> {
+    const failure = this.deletionFailures.shift();
+    if (failure) throw new MediaDeletionError(failure.retryable);
+    // Deleting something already gone is fine (safe to repeat).
+    this.assets.delete(publicId);
+    this.deleted.push(publicId);
   }
 }

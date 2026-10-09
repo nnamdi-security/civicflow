@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MEDIA_ALLOWED_FORMATS, reporterFolder } from "../../../domain/reports/media";
 import type { Clock } from "../../../domain/clock";
 import {
+  MediaDeletionError,
   MediaVerificationError,
   assertValidAsset,
   type MediaStorage,
@@ -112,6 +113,46 @@ export class CloudinaryMediaStorage implements MediaStorage {
       },
       params.reporterId,
     );
+  }
+
+  /**
+   * Deletes a photo with Cloudinary's "destroy" call. NOT yet checked against a live account
+   * (docs/integrations.md): the request follows Cloudinary's documented signed "destroy" API.
+   * `invalidate` also asks Cloudinary to purge its delivery caches, so the photo stops being
+   * served from copies kept around the world. A reply of "not found" means it was already gone.
+   */
+  async deleteAsset(publicId: string): Promise<void> {
+    const signed: Record<string, string> = {
+      invalidate: "true",
+      public_id: publicId,
+      timestamp: String(Math.floor(this.config.clock.now().getTime() / 1000)),
+    };
+    const form = new URLSearchParams({
+      ...signed,
+      api_key: this.config.apiKey,
+      signature: signCloudinaryParams(signed, this.config.apiSecret),
+    });
+
+    let response: Response;
+    try {
+      response = await this.fetchFn(`https://api.cloudinary.com/v1_1/${this.config.cloudName}/image/destroy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: form,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+    } catch {
+      throw new MediaDeletionError(true); // network failure or timeout: worth retrying
+    }
+
+    if (!response.ok) {
+      // Server trouble and rate limits may pass; a refusal (bad signature, no permission) will not.
+      throw new MediaDeletionError(response.status >= 500 || response.status === 429);
+    }
+    const body: unknown = await response.json().catch(() => null);
+    const result = typeof body === "object" && body !== null && "result" in body ? (body as { result: unknown }).result : null;
+    // "ok" = deleted now; "not found" = already gone. Both mean the photo no longer exists.
+    if (result !== "ok" && result !== "not found") throw new MediaDeletionError(false);
   }
 
   imageUrl(publicId: string, options: { width: number }): string {

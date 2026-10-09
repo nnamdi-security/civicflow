@@ -18,6 +18,12 @@ export interface MediaStorage {
   verifyAsset(params: { publicId: string; reporterId: string }): Promise<UploadedAsset>;
   /** Delivery URL for a stored photo, sized for low-bandwidth screens. */
   imageUrl(publicId: string, options: { width: number }): string;
+  /**
+   * Permanently deletes a stored photo (used when a resident erases their account, ADR 0015).
+   * SAFE TO REPEAT: if the photo is already gone, that counts as success, so a retry after a
+   * partial failure can never make things worse. Throws `MediaDeletionError` on provider trouble.
+   */
+  deleteAsset(publicId: string): Promise<void>;
 }
 
 export type MediaErrorCode = AssetIssue | "not_found" | "unavailable" | "already_used";
@@ -30,6 +36,18 @@ export class MediaVerificationError extends Error {
   ) {
     super(`Media verification failed: ${code}`);
     this.name = "MediaVerificationError";
+  }
+}
+
+/**
+ * A photo could not be deleted. `retryable` says whether trying again later might work (the
+ * provider was down or busy) or not (the provider refused, so retrying would just repeat it).
+ * Like our other adapter errors, it never carries the photo's id, URLs or the provider's reply.
+ */
+export class MediaDeletionError extends Error {
+  constructor(readonly retryable: boolean) {
+    super("Media deletion failed");
+    this.name = "MediaDeletionError";
   }
 }
 

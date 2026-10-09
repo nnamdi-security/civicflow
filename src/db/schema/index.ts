@@ -1,6 +1,7 @@
 export * from "./agencies";
 export * from "./audit";
 export * from "./auth";
+export * from "./media-deletions";
 export * from "./postgis";
 export * from "./rate-limits";
 export * from "./reports";
