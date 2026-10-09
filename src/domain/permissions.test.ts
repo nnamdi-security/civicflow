@@ -3,6 +3,7 @@ import {
   agencyScopeFor,
   canManageAgencies,
   canReassignReports,
+  canViewPerformance,
   canViewTriageQueue,
   canProvisionUser,
   canSubmitReport,
@@ -123,5 +124,16 @@ describe("triage and reassignment roles", () => {
 
   it("limits reassignment to platform and agency admins", () => {
     expect(ROLES.filter((r) => canReassignReports(actor(r)))).toEqual(["agency_admin", "platform_admin"]);
+  });
+});
+
+describe("canViewPerformance", () => {
+  it("allows only platform admins and agency admins", () => {
+    expect(ROLES.filter((r) => canViewPerformance(actor(r)))).toEqual(["agency_admin", "platform_admin"]);
+  });
+
+  it("does not allow an agency admin who somehow has no agency", () => {
+    // The database forbids this combination, but the rule should still fail safe if it ever appears.
+    expect(canViewPerformance({ role: "agency_admin", agencyId: null })).toBe(false);
   });
 });

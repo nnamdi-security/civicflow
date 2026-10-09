@@ -97,3 +97,15 @@ export function canViewTriageQueue(actor: Actor): boolean {
 export function canReassignReports(actor: Actor): boolean {
   return actor.role === "platform_admin" || actor.role === "agency_admin";
 }
+
+/**
+ * Who may open the performance dashboards (ADR 0014).
+ *  - platform admins: every agency, side by side;
+ *  - agency admins: their own agency only;
+ *  - officers and residents: nobody. (Officers have the inbox; the figures are for management.)
+ * This answers "may you open the page at all?". WHICH agencies you may see is decided separately
+ * by `agencyScopeFor`, which the database queries apply.
+ */
+export function canViewPerformance(actor: Actor): boolean {
+  return actor.role === "platform_admin" || (actor.role === "agency_admin" && actor.agencyId !== null);
+}
