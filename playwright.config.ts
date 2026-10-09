@@ -32,6 +32,8 @@ export default defineConfig({
       AUTH_SECRET: "e2e-only-secret-not-for-real-use-0123456789abcdef",
       AUTH_URL: `http://localhost:${PORT}`,
       AUTH_TRUST_HOST: "true",
+      // On here so the E2E suite can see the overdue board; it is off by default (ADR 0013).
+      PUBLIC_OVERDUE_BOARD: "true",
       RESEND_API_KEY: "",
       EMAIL_FROM: "",
       CLOUDINARY_CLOUD_NAME: "",

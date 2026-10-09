@@ -15,7 +15,7 @@ export TEST_DATABASE_URL=postgres://civicflow:civicflow_dev_only@localhost:5433/
 pnpm db:migrate
 pnpm db:seed        # optional: sample jurisdictions and agency (not real boundaries)
 pnpm dev            # http://localhost:3000, health check at /api/health
-pnpm worker         # separate process: SLA escalation scan and notification dispatch, every minute (needs DATABASE_URL)
+pnpm worker         # separate process: SLA escalation scan and notification dispatch every minute, auto-confirm hourly (needs DATABASE_URL)
 ```
 
 ## Signing in locally
@@ -30,3 +30,5 @@ Reports need a photo. Without Cloudinary credentials, photos go to a dev-only st
 End-to-end (once, then as needed): `pnpm exec playwright install chromium` and `pnpm test:e2e` with `TEST_DATABASE_URL` set.
 
 The `civicflow_test` database is created only when the Docker volume is first created. If it is missing, run `pnpm db:down` and remove the `civicflow_civicflow-pgdata` volume, then `pnpm db:up`.
+
+Public pages: `/track` finds a report by its code and shows progress only (ADR 0013). The overdue board at `/overdue` is off unless `PUBLIC_OVERDUE_BOARD=true`; leave it off until real SLA values are agreed.

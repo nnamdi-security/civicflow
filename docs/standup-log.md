@@ -2,7 +2,28 @@
 
 High-level, newest first. One entry per working day: what was done, what is next, and anything blocking. Commit hashes point to detail. Roadmap status lives in `roadmap.md`, not here.
 
-## 2026-10-09
+## 2026-10-09 (Phase 7)
+**Done**
+- Phase 7 (tracking and resident confirmation) completed.
+  - Residents can now answer "has this been fixed?" from their report page. Saying "yes" closes the report; saying "no" requires a short note, reopens it for the agency, tells the agency admins, and restarts the resolution clock.
+  - A report that stays resolved with no answer for 14 days is confirmed automatically by a background job (14 days is a provisional figure), and the history says plainly that it was automatic.
+  - Anyone can look a report up by its reference code on a public tracking page. It shows only category, status, agency, area name and a status timeline: never who reported it, the description, photos, the exact spot or staff notes. A test pins the exact fields so nothing new can leak by accident. Lookups are rate limited and the pages are hidden from search engines.
+  - A public "overdue reports" board is built but switched off by default until real SLA targets are agreed, so agencies are not named publicly on placeholder deadlines.
+  - Residents now see the deadlines the agency is held to on their own report page.
+  - Recorded the decisions as ADR 0013.
+- Tests: 469 unit and integration tests plus 7 end-to-end journeys, all passing.
+
+**Next**
+- Phase 8 (agency dashboards, hardening, launch).
+
+**Blockers / risks**
+- Real SLA targets are still needed before the public overdue board can be switched on.
+- Rate limiting of public lookups depends on how the app is hosted, which is not yet decided.
+- Resend domain and Termii sender ID (for real messages), worker hosting, real state/LGA boundaries and a live Cloudinary check are still outstanding.
+
+Commits: `1c91d87`..latest (Phase 7).
+
+## 2026-10-09 (Phase 6)
 **Done**
 - Phase 6 (email and SMS notifications) completed and tested with fake and development senders; nothing has been sent through the real providers yet.
   - Residents are emailed when their report is received, sent to an agency, acknowledged, resolved or rejected; agency admins are told about disputes and overdue reports; platform admins about reports a day overdue; and residents when a report becomes publicly overdue.

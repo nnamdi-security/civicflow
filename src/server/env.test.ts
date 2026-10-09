@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "./env";
+import { parseEnv, parsePublicEnv } from "./env";
 
 describe("parseEnv", () => {
   it("accepts a valid environment", () => {
@@ -22,5 +22,18 @@ describe("parseEnv", () => {
 
   it("names the missing variable without echoing values", () => {
     expect(() => parseEnv({})).toThrow("DATABASE_URL");
+  });
+});
+
+describe("parsePublicEnv", () => {
+  it("keeps the overdue board off unless it is explicitly switched on (ADR 0013)", () => {
+    expect(parsePublicEnv({})).toEqual({ overdueBoard: false });
+    expect(parsePublicEnv({ PUBLIC_OVERDUE_BOARD: "" })).toEqual({ overdueBoard: false });
+    expect(parsePublicEnv({ PUBLIC_OVERDUE_BOARD: "false" })).toEqual({ overdueBoard: false });
+    expect(parsePublicEnv({ PUBLIC_OVERDUE_BOARD: "true" })).toEqual({ overdueBoard: true });
+  });
+
+  it("rejects anything else rather than guessing", () => {
+    expect(() => parsePublicEnv({ PUBLIC_OVERDUE_BOARD: "yes" })).toThrow("PUBLIC_OVERDUE_BOARD");
   });
 });
