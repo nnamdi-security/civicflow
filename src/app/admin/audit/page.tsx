@@ -27,7 +27,13 @@ export default async function AuditPage() {
       {rows.length === 0 ? (
         <p>No administrative changes have been recorded yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        // Keyboard-reachable and named, because this box scrolls sideways on small screens.
+        <div
+          className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2"
+          tabIndex={0}
+          role="region"
+          aria-label="Audit log table (scrolls sideways on small screens)"
+        >
           <table className="w-full border-collapse text-left text-sm">
             <caption className="sr-only">Recent administrative changes</caption>
             <thead>

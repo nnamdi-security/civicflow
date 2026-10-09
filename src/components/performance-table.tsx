@@ -23,7 +23,15 @@ function onTimeText(summary: TimerSummary): string {
 
 export function PerformanceTable({ agencies, days }: { agencies: AgencyPerformance[]; days: number }) {
   return (
-    <div className="overflow-x-auto">
+    // On a narrow phone this box scrolls sideways. A box that scrolls must be reachable with the
+    // keyboard (tabIndex=0) and have a name that screen readers can announce (role + aria-label),
+    // otherwise a keyboard-only user can never scroll to the right-hand columns.
+    <div
+      className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2"
+      tabIndex={0}
+      role="region"
+      aria-label="Agency performance table (scrolls sideways on small screens)"
+    >
       <table className="w-full border-collapse text-left text-sm">
         <caption className="mb-2 text-left font-medium">Agency performance, last {days} days</caption>
         <thead>
