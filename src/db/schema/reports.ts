@@ -79,6 +79,12 @@ export const reports = pgTable(
     resolveDueAt: timestamptz("resolve_due_at"),
     /** Increments whenever timers restart (routing, reassignment, dispute). */
     slaCycle: integer("sla_cycle").notNull().default(0),
+    /**
+     * When the timers of the current cycle started (set at routing and at a dispute). The
+     * dashboards use it to measure "how long did the agency take?". It stays set after the
+     * timers stop, as a record of the last cycle. Null only for a report that has never been routed.
+     */
+    slaStartedAt: timestamptz("sla_started_at"),
     /** Client-generated per form; a resubmit returns the existing report. */
     idempotencyKey: uuid("idempotency_key").notNull(),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
@@ -92,6 +98,12 @@ export const reports = pgTable(
     index("reports_ack_due_idx").on(table.ackDueAt).where(sql`${table.ackDueAt} is not null`),
     index("reports_resolve_due_idx").on(table.resolveDueAt).where(sql`${table.resolveDueAt} is not null`),
     check("reports_sla_cycle_nonnegative", sql`${table.slaCycle} >= 0`),
+    // If either timer is running (has a deadline), we must know when it started. This lets the
+    // code that records SLA outcomes rely on the start time instead of guessing.
+    check(
+      "reports_running_timer_has_start",
+      sql`(${table.ackDueAt} is null and ${table.resolveDueAt} is null) or ${table.slaStartedAt} is not null`,
+    ),
     index("reports_jurisdiction_idx").on(table.jurisdictionId),
     index("reports_resolved_at_idx").on(table.resolvedAt).where(sql`${table.status} = 'resolved'`),
     check("reports_resolved_has_time", sql`${table.status} <> 'resolved' or ${table.resolvedAt} is not null`),
@@ -182,5 +194,45 @@ export const escalations = pgTable(
   (table) => [
     unique("escalations_report_timer_level_cycle_unique").on(table.reportId, table.timer, table.level, table.slaCycle),
     check("escalations_level_range", sql`${table.level} between 1 and 3`),
+  ],
+);
+
+/**
+ * One row each time an agency finishes a timer: it acknowledged or resolved a report.
+ * The dashboards (ADR 0014) count these rows to answer "how often does this agency meet its
+ * deadlines, and how long does it take?".
+ *
+ * APPEND-ONLY: a database trigger (in the migration) refuses UPDATE and DELETE, so history can
+ * never be quietly rewritten. The unique key stops the same timer, in the same cycle, being
+ * recorded twice.
+ */
+export const slaOutcomes = pgTable(
+  "sla_outcomes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reportId: uuid("report_id")
+      .notNull()
+      .references(() => reports.id),
+    /** The agency that held the report when the timer stopped (the one being measured). */
+    agencyId: uuid("agency_id")
+      .notNull()
+      .references(() => agencies.id),
+    timer: slaTimerEnum("timer").notNull(),
+    /** Which cycle of timers this belongs to; see `reports.sla_cycle`. */
+    slaCycle: integer("sla_cycle").notNull(),
+    startedAt: timestamptz("started_at").notNull(),
+    dueAt: timestamptz("due_at").notNull(),
+    stoppedAt: timestamptz("stopped_at").notNull(),
+    /** True when stopped at or before the deadline. */
+    met: boolean("met").notNull(),
+    createdAt: timestamptz("created_at").notNull().defaultNow(),
+  },
+  (table) => [
+    // A given timer in a given cycle of a given report finishes only once.
+    unique("sla_outcomes_report_timer_cycle_unique").on(table.reportId, table.timer, table.slaCycle),
+    // The dashboards always ask "for this agency, in this time window", so index exactly that.
+    index("sla_outcomes_agency_stopped_idx").on(table.agencyId, table.stoppedAt),
+    // A timer cannot stop before it started.
+    check("sla_outcomes_time_order", sql`${table.stoppedAt} >= ${table.startedAt}`),
   ],
 );

@@ -1,6 +1,17 @@
 import { eq, sql } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { agencies, assignments, categories, escalations, reportMedia, reports, slaPolicies, statusEvents, users } from "@/db/schema";
+import {
+  agencies,
+  assignments,
+  categories,
+  escalations,
+  reportMedia,
+  reports,
+  slaOutcomes,
+  slaPolicies,
+  statusEvents,
+  users,
+} from "@/db/schema";
 import { resetReports, setupTestDb } from "./test-db";
 
 let conn: Awaited<ReturnType<typeof setupTestDb>>;
@@ -241,5 +252,77 @@ describe("resolved reports need a resolved time", () => {
     await expect(createReport({ status: "resolved", agencyId: agency.id })).rejects.toThrow();
     const ok = await createReport({ status: "resolved", agencyId: agency.id, resolvedAt: new Date() });
     expect(ok.report.resolvedAt).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Database-level protection for SLA history (ADR 0014). These tests talk straight to the
+// database, skipping the application code, to prove the rules cannot be bypassed by a bug.
+// ---------------------------------------------------------------------------------------------
+describe("running timers need a start time", () => {
+  it("rejects a report with a deadline but no start time, and accepts one with a start time", async () => {
+    const agency = await createAgency();
+    const dueAt = new Date("2026-03-02T09:00:00Z");
+    // A running acknowledge timer (ackDueAt set) with no slaStartedAt breaks the rule.
+    await expect(createReport({ status: "routed", agencyId: agency.id, ackDueAt: dueAt })).rejects.toThrow();
+    const ok = await createReport({
+      status: "routed",
+      agencyId: agency.id,
+      ackDueAt: dueAt,
+      slaStartedAt: new Date("2026-03-01T09:00:00Z"),
+    });
+    expect(ok.report.ackDueAt).toEqual(dueAt);
+  });
+
+  it("allows a report with no running timers to have no start time", async () => {
+    const { report } = await createReport();
+    expect(report.slaStartedAt).toBeNull();
+  });
+});
+
+describe("sla_outcomes", () => {
+  // Builds one valid outcome row for a report; tests override single fields to break one rule at a time.
+  async function insertOutcome(reportId: string, agencyId: string, overrides: Partial<typeof slaOutcomes.$inferInsert> = {}) {
+    const [row] = await conn.db
+      .insert(slaOutcomes)
+      .values({
+        reportId,
+        agencyId,
+        timer: "acknowledge",
+        slaCycle: 1,
+        startedAt: new Date("2026-03-01T09:00:00Z"),
+        dueAt: new Date("2026-03-02T09:00:00Z"),
+        stoppedAt: new Date("2026-03-01T12:00:00Z"),
+        met: true,
+        ...overrides,
+      })
+      .returning();
+    if (!row) throw new Error("outcome not created");
+    return row;
+  }
+
+  it("is append-only: rows can be added but never changed or deleted", async () => {
+    const agency = await createAgency();
+    const { report } = await createReport();
+    const row = await insertOutcome(report.id, agency.id);
+    await expect(conn.db.update(slaOutcomes).set({ met: false }).where(eq(slaOutcomes.id, row.id))).rejects.toThrow();
+    await expect(conn.db.delete(slaOutcomes).where(eq(slaOutcomes.id, row.id))).rejects.toThrow();
+  });
+
+  it("records each timer once per cycle, but allows a new cycle or the other timer", async () => {
+    const agency = await createAgency();
+    const { report } = await createReport();
+    await insertOutcome(report.id, agency.id);
+    await expect(insertOutcome(report.id, agency.id)).rejects.toThrow(); // same timer, same cycle
+    await insertOutcome(report.id, agency.id, { slaCycle: 2 }); // new cycle
+    await insertOutcome(report.id, agency.id, { timer: "resolve" }); // the other timer
+  });
+
+  it("cannot stop before it started", async () => {
+    const agency = await createAgency();
+    const { report } = await createReport();
+    await expect(
+      insertOutcome(report.id, agency.id, { stoppedAt: new Date("2026-02-28T09:00:00Z") }),
+    ).rejects.toThrow();
   });
 });

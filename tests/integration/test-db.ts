@@ -16,9 +16,20 @@ export async function setupTestDb() {
 }
 
 /**
- * Clears report data. status_events rejects DELETE by design, so tests use TRUNCATE, which
- * only works with table-owner privileges (true for the test database, not for the app).
+ * Empties every table that belongs to reports, so each test starts from a clean slate.
+ *
+ * Why TRUNCATE and not DELETE: several of these tables are "append-only" (a database trigger
+ * refuses UPDATE and DELETE on them, so history cannot be rewritten). TRUNCATE is a different
+ * command that the trigger does not block, but it needs table-owner rights, which the test
+ * database has and the real app never will.
+ *
+ * IMPORTANT FOR FUTURE CHANGES: a table that points at `reports` through a foreign key MUST be
+ * listed here too, or Postgres refuses to truncate `reports` ("Table X references reports") and
+ * nearly every test fails. If you add such a table, add it to this list, and to the `clear()`
+ * helpers in the end-to-end specs under tests/e2e/.
  */
 export async function resetReports(db: TestConnection["db"]) {
-  await db.execute(sql`truncate table notifications, escalations, assignments, status_events, report_media, reports`);
+  await db.execute(
+    sql`truncate table sla_outcomes, notifications, escalations, assignments, status_events, report_media, reports`,
+  );
 }

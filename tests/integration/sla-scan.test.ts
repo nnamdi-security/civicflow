@@ -62,6 +62,9 @@ async function report(timers: Partial<typeof reports.$inferInsert> = {}) {
       agencyId,
       routedAt: new Date("2026-03-01T09:00:00Z"),
       slaCycle: 1,
+      // The database requires every report with a running timer to have a start time
+      // (the "reports_running_timer_has_start" rule), so the fixture supplies one.
+      slaStartedAt: new Date("2026-03-01T09:00:00Z"),
       ackDueAt: DUE,
       ...timers,
     })

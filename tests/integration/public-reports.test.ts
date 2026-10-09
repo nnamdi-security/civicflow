@@ -99,6 +99,8 @@ async function report(overrides: Partial<typeof reports.$inferInsert> = {}) {
       jurisdictionId: areaId,
       routedAt: new Date(NOW.getTime() - 10 * DAY),
       slaCycle: 1,
+      // Required by the database whenever a timer is running ("reports_running_timer_has_start").
+      slaStartedAt: new Date(NOW.getTime() - 10 * DAY),
       ...overrides,
     })
     .returning();

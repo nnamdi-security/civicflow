@@ -21,7 +21,7 @@ function databaseUrl() {
 
 // Append-only tables reject DELETE, so tests clear them with TRUNCATE (test database only).
 async function clear() {
-  await pool.query("truncate table notifications, escalations, assignments, status_events, report_media, reports");
+  await pool.query("truncate table sla_outcomes, notifications, escalations, assignments, status_events, report_media, reports");
   await pool.query("delete from users where email like 'e2e-%-confirm-officer@example.com'");
   await pool.query("delete from agencies where name = $1", [AGENCY_NAME]);
   await pool.query("delete from jurisdictions where name = $1", [AREA_NAME]);

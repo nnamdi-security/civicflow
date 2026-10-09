@@ -1,10 +1,19 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Db, Tx } from "../../db/client";
-import { agencies, assignments, categories, reportMedia, reports, slaPolicies, statusEvents } from "../../db/schema";
+import {
+  agencies,
+  assignments,
+  categories,
+  reportMedia,
+  reports,
+  slaOutcomes,
+  slaPolicies,
+  statusEvents,
+} from "../../db/schema";
 import type { Clock } from "../../domain/clock";
 import type { AgencyScope } from "../../domain/permissions";
 import type { ReportStatus } from "../../domain/reports/status";
-import { timersAfterEntering, type SlaPolicy } from "../../domain/sla";
+import { outcomeForEntering, timersAfterEntering, type SlaPolicy } from "../../domain/sla";
 import { eventForStatus } from "../../domain/notifications/events";
 import { enqueueNotifications } from "./notifications";
 import { currentEscalationLevel, toLevel } from "./sla-columns";
@@ -47,37 +56,75 @@ export async function findSlaPolicy(db: Db | Tx, categoryId: string): Promise<Sl
 }
 
 /**
- * Compare-and-set status change plus its StatusEvent, with the SLA timers that go with it
- * (docs/sla-and-escalation.md). The report row is locked first, so the timers are computed
- * from the state the change really applies to. Returns false when the report is no longer in
- * `from` (someone else moved it first), writing nothing. Call inside a transaction.
+ * Moves a report from one status to another, and does every other thing that must happen at the
+ * same moment. This is THE place status changes are written, so all the bookkeeping lives here:
+ *
+ *   1. checks nobody else changed the report first ("compare-and-set", explained below);
+ *   2. works out the new SLA timers (src/domain/sla.ts) and saves them;
+ *   3. records an SLA outcome if the agency just finished a timer (for the dashboards);
+ *   4. adds a line to the report's history (a "status event");
+ *   5. queues any email/SMS this change should cause (the notification outbox).
+ *
+ * It must be called inside a database TRANSACTION (`tx`). A transaction is a group of database
+ * changes that either ALL succeed or ALL are undone. That is what guarantees, for example, that
+ * a report never says "acknowledged" without its history line and its notification.
+ *
+ * Returns false (and writes nothing) if the report is no longer in the `from` status, which means
+ * someone else moved it first. This is called "compare-and-set": we only set the new status if it
+ * still matches what we compared against. It stops two people clicking at the same moment from both winning.
  */
 export async function applyStatusChange(tx: Tx, change: StatusChange, clock: Clock): Promise<boolean> {
+  // Read the report's current state and LOCK its row (`.for("update")`). While we hold the lock,
+  // any other transaction trying to change this same report has to wait for us to finish.
   const [current] = await tx
     .select({
       status: reports.status,
       categoryId: reports.categoryId,
+      agencyId: reports.agencyId,
       ackDueAt: reports.ackDueAt,
       resolveDueAt: reports.resolveDueAt,
       slaCycle: reports.slaCycle,
+      slaStartedAt: reports.slaStartedAt,
     })
     .from(reports)
     .where(eq(reports.id, change.reportId))
     .for("update");
+
+  // The "compare" in compare-and-set: if the report moved on since the caller looked, give up.
   if (!current || current.status !== change.from) return false;
 
+  // Look up how long this category's deadlines are (see the sla_policies table).
   const policy = await findSlaPolicy(tx, current.categoryId);
-  // A category without a policy cannot start timers; fail loudly instead of leaving a report untimed.
+  // Routing and disputes START timers, so they need a policy. If a category has none, fail loudly
+  // instead of quietly leaving a report with no deadline.
   if (!policy && (change.to === "routed" || change.to === "disputed")) {
     throw new Error("No SLA policy for the report's category");
   }
-  const timers = timersAfterEntering(change.to, current, policy ?? { ackMinutes: 0, resolveMinutes: 0 }, clock);
 
+  // The report's timers as they are right now, in the shape the pure SLA rules expect.
+  const before = {
+    ackDueAt: current.ackDueAt,
+    resolveDueAt: current.resolveDueAt,
+    slaCycle: current.slaCycle,
+    startedAt: current.slaStartedAt,
+  };
+
+  // Ask the pure SLA rules: "what do the timers look like after entering this status?"
+  // The fallback policy of zeros is only used for statuses that never start a timer.
+  const timers = timersAfterEntering(change.to, before, policy ?? { ackMinutes: 0, resolveMinutes: 0 }, clock);
+
+  // Ask the pure SLA rules: "did this change finish a timer, and was it on time?"
+  // This must use the timers from BEFORE the change, because acknowledging clears the deadline.
+  const outcome = outcomeForEntering(change.to, before, clock);
+
+  // Save the new status and timers on the report.
   await tx
     .update(reports)
     .set({
       status: change.to,
+      // Only set the agency when this change (re)assigns the report.
       ...(change.agencyId ? { agencyId: change.agencyId } : {}),
+      // Remember the FIRST time the report was routed; `coalesce` keeps an existing value.
       ...(change.to === "routed" ? { routedAt: sql`coalesce(${reports.routedAt}, ${clock.now()})` } : {}),
       // Auto-confirmation counts from the latest time the report entered `resolved` (ADR 0013).
       ...(change.to === "resolved" ? { resolvedAt: clock.now() } : {}),
@@ -85,20 +132,40 @@ export async function applyStatusChange(tx: Tx, change: StatusChange, clock: Clo
       ackDueAt: timers.ackDueAt,
       resolveDueAt: timers.resolveDueAt,
       slaCycle: timers.slaCycle,
+      slaStartedAt: timers.startedAt,
     })
     .where(eq(reports.id, change.reportId));
 
+  // Record the SLA outcome (if any) for the dashboards. It is attributed to the agency that held
+  // the report at that moment, which is the one being measured.
+  if (outcome) {
+    if (current.agencyId === null) throw new Error("A timer stopped on a report with no agency");
+    await tx.insert(slaOutcomes).values({
+      reportId: change.reportId,
+      agencyId: current.agencyId,
+      timer: outcome.timer,
+      slaCycle: outcome.slaCycle,
+      startedAt: outcome.startedAt,
+      dueAt: outcome.dueAt,
+      stoppedAt: outcome.stoppedAt,
+      met: outcome.met,
+    });
+  }
+
+  // Add a line to the report's permanent history (this table can never be edited or deleted).
   await tx.insert(statusEvents).values({
     reportId: change.reportId,
     fromStatus: change.from,
     toStatus: change.to,
     actorId: change.actorId,
     reason: change.reason,
-    // now() is the transaction start; use the wall clock so events in one transaction keep their order.
+    // `now()` in a transaction means "when the transaction started", so two events in one
+    // transaction would tie. `clock_timestamp()` is the real current time, keeping them in order.
     createdAt: sql`clock_timestamp()` as unknown as Date,
   });
 
-  // Same transaction: the message exists exactly when the change commits (ADR 0011).
+  // Queue the emails/SMS this change should cause, in the SAME transaction: a message exists
+  // exactly when the change is saved, never without it (ADR 0011).
   const event = eventForStatus(change.to);
   if (event) await enqueueNotifications(tx, { reportId: change.reportId, event, slaCycle: timers.slaCycle });
   return true;

@@ -1,3 +1,10 @@
+/**
+ * Unit tests for the SLA timer rules in sla.ts.
+ *
+ * A "unit test" checks one small piece of code in isolation. These tests need no database:
+ * they freeze time with `fixedClock` and check what the pure functions return. Each `it(...)`
+ * block states one fact about the rules; if the rules change by accident, the matching test fails.
+ */
 import { describe, expect, it } from "vitest";
 import { fixedClock } from "./clock";
 import { REPORT_STATUSES } from "./reports/status";
@@ -7,6 +14,7 @@ import {
   currentLevel,
   escalationLevelsDue,
   isOverdue,
+  outcomeForEntering,
   overdueTimers,
   timersAfterEntering,
   type SlaPolicy,
@@ -27,6 +35,8 @@ describe("timersAfterEntering: routed", () => {
       ackDueAt: new Date("2026-03-02T09:00:00Z"),
       resolveDueAt: new Date("2026-03-08T09:00:00Z"),
       slaCycle: 1,
+      // The new field: when this cycle of timers began (used to measure how long the agency took).
+      startedAt: T0,
     });
   });
 
@@ -42,6 +52,7 @@ describe("timersAfterEntering: routed", () => {
     const later = plus(T0, 10 * HOUR);
     const second = timersAfterEntering("routed", first, POLICY, clockAt(later));
     expect(second.slaCycle).toBe(2);
+    expect(second.startedAt).toEqual(later); // the new cycle starts at the reassignment, not at the first routing
     expect(second.ackDueAt).toEqual(plus(later, 24 * HOUR));
     expect(second.resolveDueAt).toEqual(plus(later, 7 * 24 * HOUR));
   });
@@ -66,6 +77,7 @@ describe("timersAfterEntering: later states", () => {
         ackDueAt: null,
         resolveDueAt: null,
         slaCycle: routed.slaCycle,
+        startedAt: routed.startedAt, // kept as a record of the last cycle
       });
     }
   });
@@ -78,11 +90,12 @@ describe("timersAfterEntering: later states", () => {
       ackDueAt: null,
       resolveDueAt: plus(disputeAt, 7 * 24 * HOUR),
       slaCycle: resolved.slaCycle + 1,
+      startedAt: disputeAt, // a dispute starts a fresh cycle, measured from the dispute
     });
   });
 
   it("does not restart the timer again when a disputed report is reopened", () => {
-    const disputed: TimerState = { ackDueAt: null, resolveDueAt: plus(T0, 100 * HOUR), slaCycle: 2 };
+    const disputed: TimerState = { ackDueAt: null, resolveDueAt: plus(T0, 100 * HOUR), slaCycle: 2, startedAt: T0 };
     expect(timersAfterEntering("in_progress", disputed, POLICY, clockAt(plus(T0, 50 * HOUR)))).toEqual(disputed);
   });
 
@@ -90,6 +103,72 @@ describe("timersAfterEntering: later states", () => {
     for (const status of REPORT_STATUSES) {
       expect(() => timersAfterEntering(status, routed, POLICY, clock)).not.toThrow();
     }
+  });
+});
+
+// -------------------------------------------------------------------------------------------
+// Outcomes: when an agency finishes a timer, did it make the deadline? (ADR 0014)
+// -------------------------------------------------------------------------------------------
+describe("outcomeForEntering", () => {
+  // A report routed at T0 with a 24-hour acknowledge deadline and a 7-day resolve deadline.
+  const routed = timersAfterEntering("routed", NO_TIMERS, POLICY, clockAt(T0));
+  const ackDue = routed.ackDueAt as Date; // we know it is set because we just routed the report
+
+  it("is met when the agency acknowledges well before the deadline", () => {
+    const outcome = outcomeForEntering("acknowledged", routed, clockAt(plus(T0, 2 * HOUR)));
+    expect(outcome).toEqual({
+      timer: "acknowledge",
+      slaCycle: 1,
+      startedAt: T0,
+      dueAt: ackDue,
+      stoppedAt: plus(T0, 2 * HOUR),
+      met: true,
+    });
+  });
+
+  it("is still met exactly on the deadline, and missed one second later", () => {
+    // This pair of checks pins down the boundary: the deadline instant itself is on time.
+    expect(outcomeForEntering("acknowledged", routed, clockAt(ackDue))?.met).toBe(true);
+    expect(outcomeForEntering("acknowledged", routed, clockAt(plus(ackDue, 1000)))?.met).toBe(false);
+    expect(outcomeForEntering("acknowledged", routed, clockAt(plus(ackDue, -1000)))?.met).toBe(true);
+  });
+
+  it("measures the resolve timer when the report is resolved", () => {
+    const acked = timersAfterEntering("acknowledged", routed, POLICY, clockAt(plus(T0, HOUR)));
+    const outcome = outcomeForEntering("resolved", acked, clockAt(plus(T0, 3 * 24 * HOUR)));
+    expect(outcome).toMatchObject({ timer: "resolve", met: true, startedAt: T0, dueAt: routed.resolveDueAt });
+  });
+
+  it("is missed when resolved after the resolve deadline", () => {
+    const outcome = outcomeForEntering("resolved", routed, clockAt(plus(T0, 8 * 24 * HOUR)));
+    expect(outcome?.met).toBe(false);
+  });
+
+  it("produces nothing for changes that end a timer without the agency finishing it", () => {
+    // Rejection, dispute, reassignment ("routed"), confirmation, and in_progress do not
+    // count for or against the agency.
+    for (const status of ["rejected", "disputed", "routed", "confirmed", "in_progress", "submitted"] as const) {
+      expect(outcomeForEntering(status, routed, clockAt(plus(T0, HOUR)))).toBeNull();
+    }
+  });
+
+  it("produces nothing when the timer being stopped was not running", () => {
+    const acked = timersAfterEntering("acknowledged", routed, POLICY, clockAt(plus(T0, HOUR)));
+    // The acknowledge timer is already off, so entering "acknowledged" again records nothing.
+    expect(outcomeForEntering("acknowledged", acked, clockAt(plus(T0, 2 * HOUR)))).toBeNull();
+  });
+
+  it("refuses to guess if a running timer has no start time (corrupt data)", () => {
+    const broken: TimerState = { ...routed, startedAt: null };
+    expect(() => outcomeForEntering("acknowledged", broken, clockAt(plus(T0, HOUR)))).toThrow();
+  });
+
+  it("records a dispute cycle separately from the first cycle", () => {
+    // After a dispute, the resolve timer is a NEW cycle, so its outcome carries cycle 2.
+    const resolvedOnce = timersAfterEntering("resolved", routed, POLICY, clockAt(plus(T0, 3 * HOUR)));
+    const disputed = timersAfterEntering("disputed", resolvedOnce, POLICY, clockAt(plus(T0, 24 * HOUR)));
+    const outcome = outcomeForEntering("resolved", disputed, clockAt(plus(T0, 30 * HOUR)));
+    expect(outcome).toMatchObject({ slaCycle: 2, startedAt: plus(T0, 24 * HOUR), met: true });
   });
 });
 

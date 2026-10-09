@@ -10,6 +10,7 @@ import {
   notifications,
   rateLimits,
   reports,
+  slaOutcomes,
   statusEvents,
   users,
 } from "@/db/schema";
@@ -602,5 +603,137 @@ describe("the resident's answer to a resolution", () => {
   it("cannot be answered before the report is resolved", async () => {
     const id = await submit();
     expect(await changeReportStatus(deps, resident, to(id, "confirmed"))).toEqual({ ok: false, reason: "not_allowed" });
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// SLA outcomes (ADR 0014)
+//
+// Each time an agency FINISHES a timer (acknowledges or resolves a report), one row is saved in
+// the `sla_outcomes` table saying whether the deadline was met. The dashboards are built on these
+// rows. These tests drive the real workflow (the same code the web pages call) against a real
+// database and then read the table, to prove the right rows are written, and ONLY the right rows.
+//
+// For the "roads" category used in these tests: 24 hours to acknowledge, 14 days to resolve.
+// ---------------------------------------------------------------------------------------------
+describe("SLA outcomes recorded by the workflow", () => {
+  // Reads every outcome for one report, oldest first, in a small easy-to-compare shape.
+  const outcomesOf = async (reportId: string) => {
+    const rows = await conn.db.select().from(slaOutcomes).where(eq(slaOutcomes.reportId, reportId));
+    return rows
+      .sort((a, b) => a.stoppedAt.getTime() - b.stoppedAt.getTime())
+      .map((r) => ({ timer: r.timer, cycle: r.slaCycle, met: r.met, agencyId: r.agencyId, row: r }));
+  };
+
+  it("saves the start time of the timers when a report is routed", async () => {
+    const id = await submit();
+    const [row] = await conn.db.select({ startedAt: reports.slaStartedAt }).from(reports).where(eq(reports.id, id));
+    expect(row?.startedAt).toEqual(START);
+  });
+
+  it("records a MET acknowledgement when the officer acknowledges in time", async () => {
+    const id = await submit();
+    clock.advance(2 * HOUR); // two hours later: well inside the 24-hour deadline
+    await changeReportStatus(deps, officerA, to(id, "acknowledged"));
+
+    const [outcome] = await outcomesOf(id);
+    expect(outcome).toMatchObject({ timer: "acknowledge", cycle: 1, met: true, agencyId: agencyA });
+    // The row remembers exactly when the timer started, when it was due and when it stopped.
+    expect(outcome?.row.startedAt).toEqual(START);
+    expect(outcome?.row.dueAt).toEqual(new Date(START.getTime() + DAY));
+    expect(outcome?.row.stoppedAt).toEqual(new Date(START.getTime() + 2 * HOUR));
+  });
+
+  it("counts acknowledging EXACTLY on the deadline as met, and one second later as missed", async () => {
+    // Two separate reports, so each boundary is tested on its own.
+    const onTime = await submit();
+    const late = await submit();
+
+    clock.advance(DAY); // now exactly at the deadline
+    await changeReportStatus(deps, officerA, to(onTime, "acknowledged"));
+    clock.advance(1000); // one second after the deadline
+    await changeReportStatus(deps, officerA, to(late, "acknowledged"));
+
+    expect((await outcomesOf(onTime))[0]?.met).toBe(true);
+    expect((await outcomesOf(late))[0]?.met).toBe(false);
+  });
+
+  it("records a MISSED resolution when the report is resolved after its deadline", async () => {
+    const id = await submit();
+    await changeReportStatus(deps, officerA, to(id, "acknowledged"));
+    await changeReportStatus(deps, officerA, to(id, "in_progress"));
+    clock.advance(15 * DAY); // the resolve deadline was 14 days
+    await changeReportStatus(deps, officerA, to(id, "resolved"));
+
+    const outcomes = await outcomesOf(id);
+    expect(outcomes.map((o) => [o.timer, o.met])).toEqual([
+      ["acknowledge", true], // acknowledged immediately
+      ["resolve", false], // but resolved a day too late
+    ]);
+  });
+
+  it("records nothing for changes that are not the agency finishing a timer", async () => {
+    // Rejecting a routed report stops its timers but is not the agency "doing its job".
+    const rejected = await submit();
+    await changeReportStatus(deps, officerA, to(rejected, "rejected", "not a civic issue"));
+    expect(await outcomesOf(rejected)).toEqual([]);
+
+    // A report waiting in triage has no agency and no timers, so nothing to measure.
+    const triaged = await submit(OUTSIDE);
+    expect(await outcomesOf(triaged)).toEqual([]);
+
+    // Reassigning mid-timer ends the old agency's cycle without an outcome for anybody.
+    const moved = await submit();
+    await reassignReport({ db: conn.db, clock }, adminA, { reportId: moved, agencyId: agencyB });
+    expect(await outcomesOf(moved)).toEqual([]);
+  });
+
+  it("measures the NEW agency after a reassignment, not the old one", async () => {
+    const id = await submit();
+    clock.advance(HOUR);
+    await reassignReport({ db: conn.db, clock }, adminA, { reportId: id, agencyId: agencyB });
+    clock.advance(HOUR);
+    await changeReportStatus(deps, officerB, to(id, "acknowledged"));
+
+    const [outcome] = await outcomesOf(id);
+    // Agency B is measured, in cycle 2, from the moment the report was handed to it.
+    expect(outcome).toMatchObject({ agencyId: agencyB, cycle: 2, timer: "acknowledge", met: true });
+    expect(outcome?.row.startedAt).toEqual(new Date(START.getTime() + HOUR));
+  });
+
+  it("records a dispute cycle as a separate resolve outcome in cycle 2", async () => {
+    const id = await resolvedReport(); // first resolution: cycle 1
+    clock.advance(DAY);
+    await changeReportStatus(deps, resident, to(id, "disputed", "still broken"));
+    // Disputing is not an agency outcome, so nothing new yet beyond the first resolution.
+    expect((await outcomesOf(id)).filter((o) => o.timer === "resolve")).toHaveLength(1);
+
+    await changeReportStatus(deps, officerA, to(id, "in_progress"));
+    clock.advance(2 * DAY);
+    await changeReportStatus(deps, officerA, to(id, "resolved"));
+
+    const resolves = (await outcomesOf(id)).filter((o) => o.timer === "resolve");
+    expect(resolves.map((o) => [o.cycle, o.met])).toEqual([
+      [1, true],
+      [2, true],
+    ]);
+    // The second outcome is measured from the dispute (day 1), not from the original routing.
+    expect(resolves[1]?.row.startedAt).toEqual(new Date(START.getTime() + DAY));
+  });
+
+  it("writes the outcome in the same transaction as the status change", async () => {
+    const id = await submit();
+    // Make the transaction fail at the very end (after the outcome is inserted) and check that
+    // NOTHING is saved: no status change and no outcome. This is what "same transaction" means.
+    await expect(
+      conn.db.transaction(async (tx) => {
+        const { applyStatusChange } = await import("@/server/repositories/report-workflow");
+        await applyStatusChange(tx, { reportId: id, from: "routed", to: "acknowledged", actorId: officerA.userId, reason: null }, clock);
+        throw new Error("simulated failure after the change");
+      }),
+    ).rejects.toThrow("simulated failure");
+
+    expect(await statusOf(id)).toBe("routed");
+    expect(await outcomesOf(id)).toEqual([]);
   });
 });
