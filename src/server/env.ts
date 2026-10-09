@@ -89,6 +89,16 @@ export function parseAppEnv(raw: Record<string, string | undefined>): AppEnv {
   return parseWith(appEnvSchema, raw);
 }
 
+const publicEnvSchema = z.object({
+  PUBLIC_OVERDUE_BOARD: z.enum(["true", "false"]).default("false"),
+});
+
+/** Public-page switches. The overdue board and public SLA details are off unless explicitly enabled (ADR 0013). */
+export function parsePublicEnv(raw: Record<string, string | undefined>): { overdueBoard: boolean } {
+  const env = parseWith(publicEnvSchema, raw);
+  return { overdueBoard: env.PUBLIC_OVERDUE_BOARD === "true" };
+}
+
 const smsEnvSchema = z
   .object({
     TERMII_API_KEY: z.string().min(1).optional(),

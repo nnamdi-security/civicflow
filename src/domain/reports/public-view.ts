@@ -70,3 +70,20 @@ export function toPublicReport(
     sla,
   };
 }
+
+/** One row on the public overdue board. Same allow-list rule as `PublicReport`. */
+export interface PublicOverdueItem {
+  reference: string;
+  categoryName: string;
+  agencyName: string | null;
+  areaName: string | null;
+  /** The earliest missed deadline among timers marked publicly overdue. */
+  overdueSince: Date;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Whole days overdue, rounded down; zero on the first day. */
+export function daysOverdue(overdueSince: Date, clock: Clock): number {
+  return Math.max(0, Math.floor((clock.now().getTime() - overdueSince.getTime()) / DAY_MS));
+}

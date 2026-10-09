@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixedClock } from "../clock";
 import { AUTO_CONFIRM_DAYS, AUTO_CONFIRM_REASON, autoConfirmDueAt, isAutoConfirmDue } from "./auto-confirm";
-import { toPublicReport, type PublicReportSource } from "./public-view";
+import { daysOverdue, toPublicReport, type PublicReportSource } from "./public-view";
 
 const DAY = 24 * 60 * 60 * 1000;
 const RESOLVED = new Date("2026-03-01T09:00:00Z");
@@ -109,5 +109,21 @@ describe("toPublicReport", () => {
   it("keeps a missing agency or area as null", () => {
     const result = toPublicReport({ ...source, agencyName: null, areaName: null }, { showSla: false }, fixedClock(NOW));
     expect(result).toMatchObject({ agencyName: null, areaName: null });
+  });
+});
+
+describe("daysOverdue", () => {
+  const since = new Date("2026-03-01T09:00:00Z");
+  const clockAfter = (ms: number) => fixedClock(new Date(since.getTime() + ms));
+
+  it("counts whole days, rounding down", () => {
+    expect(daysOverdue(since, clockAfter(0))).toBe(0);
+    expect(daysOverdue(since, clockAfter(DAY - 1000))).toBe(0);
+    expect(daysOverdue(since, clockAfter(DAY))).toBe(1);
+    expect(daysOverdue(since, clockAfter(3 * DAY + 5 * 3_600_000))).toBe(3);
+  });
+
+  it("never goes negative", () => {
+    expect(daysOverdue(since, clockAfter(-5 * DAY))).toBe(0);
   });
 });
