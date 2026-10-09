@@ -53,6 +53,8 @@ interface Pending {
   phoneVerified: boolean;
   notifyEmail: boolean;
   notifySms: boolean;
+  /** True when the recipient's account has been deactivated (ADR 0014). */
+  deactivated: boolean;
 }
 
 type Outcome =
@@ -101,6 +103,7 @@ async function load(db: Db, id: string): Promise<Pending | null> {
       phoneVerifiedAt: users.phoneVerifiedAt,
       notifyEmail: users.notifyEmail,
       notifySms: users.notifySms,
+      disabledAt: users.disabledAt,
     })
     .from(notifications)
     .innerJoin(reports, eq(reports.id, notifications.reportId))
@@ -109,7 +112,7 @@ async function load(db: Db, id: string): Promise<Pending | null> {
     .where(and(eq(notifications.id, id), eq(notifications.status, "pending")))
     .limit(1);
   if (!row) return null;
-  return { ...row, phoneVerified: row.phoneVerifiedAt !== null };
+  return { ...row, phoneVerified: row.phoneVerifiedAt !== null, deactivated: row.disabledAt !== null };
 }
 
 async function rejectionReason(db: Db, reportId: string): Promise<string | null> {
@@ -132,6 +135,10 @@ function failureOutcome(error: unknown): Outcome {
 
 async function deliver(deps: DispatchDeps, pending: Pending): Promise<Outcome> {
   const kind = recipientKind(pending.event, pending.channel);
+
+  // A message may have been queued before the person's account was deactivated. Check again at
+  // send time: a deactivated account receives nothing.
+  if (pending.deactivated) return { kind: "skipped", reason: "user_deactivated" };
 
   if (pending.channel === "email") {
     // Residents may switch off their report emails; staff escalation emails are operational.

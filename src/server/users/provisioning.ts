@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import type { Db } from "../../db/client";
+import type { Db, Tx } from "../../db/client";
 import { agencies, users } from "../../db/schema";
 import { canProvisionUser, type Actor } from "../../domain/permissions";
 import type { Role } from "../../domain/roles";
@@ -31,7 +31,7 @@ export interface ProvisionInput {
  * Authorization is checked first. Existing accounts are never modified here: changing a role
  * is a separate, deliberate action.
  */
-export async function provisionUser(db: Db, actor: Actor, input: ProvisionInput) {
+export async function provisionUser(db: Db | Tx, actor: Actor, input: ProvisionInput) {
   if (!canProvisionUser(actor, { role: input.role, agencyId: input.agencyId })) {
     throw new ForbiddenError();
   }

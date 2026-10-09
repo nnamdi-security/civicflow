@@ -5,10 +5,11 @@
  * and write the audit log. The pages call `requirePlatformAdminPage` before using anything here,
  * because these functions assume the caller has already been checked.
  */
-import { asc, count, eq } from "drizzle-orm";
+import { asc, count, eq, ne } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "../../db/client";
-import { agencies, agencyJurisdictions, categories, jurisdictions, slaPolicies } from "../../db/schema";
+import { agencies, agencyJurisdictions, categories, jurisdictions, slaPolicies, users } from "../../db/schema";
+import type { AgencyScope } from "../../domain/permissions";
 import type { AgencyType } from "../../domain/agency-types";
 
 export interface AgencyListItem {
@@ -129,4 +130,48 @@ export async function listCategories(db: Db): Promise<CategoryRow[]> {
     .select({ id: categories.id, name: categories.name, active: categories.active })
     .from(categories)
     .orderBy(asc(categories.sortOrder));
+}
+
+export interface StaffRow {
+  id: string;
+  email: string;
+  role: string;
+  agencyName: string | null;
+  /** True when the account has been deactivated. */
+  deactivated: boolean;
+}
+
+/**
+ * The staff the caller is allowed to see, scoped INSIDE the query:
+ *  - scope "all"    (platform admin): every staff account, i.e. everyone who is not a resident;
+ *  - scope "agency" (agency admin):   only the people in that one agency;
+ *  - scope "none":                    nobody.
+ * Emails are shown because this is an internal directory for the people who manage these accounts.
+ */
+export async function listStaff(db: Db, scope: AgencyScope): Promise<StaffRow[]> {
+  if (scope.kind === "none") return [];
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      role: users.role,
+      agencyName: agencies.name,
+      disabledAt: users.disabledAt,
+    })
+    .from(users)
+    .leftJoin(agencies, eq(agencies.id, users.agencyId))
+    .where(
+      scope.kind === "agency"
+        ? eq(users.agencyId, scope.agencyId)
+        : // Platform admin view: staff only. Residents are excluded.
+          ne(users.role, "resident"),
+    )
+    .orderBy(asc(agencies.name), asc(users.role), asc(users.email));
+  return rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    agencyName: row.agencyName,
+    deactivated: row.disabledAt !== null,
+  }));
 }

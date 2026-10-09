@@ -36,6 +36,12 @@ export const users = pgTable(
     notifyEmail: boolean("notify_email").notNull().default(true),
     /** Only possible with a verified phone. */
     notifySms: boolean("notify_sms").notNull().default(false),
+    /**
+     * When the account was deactivated (ADR 0014), or null while it is active. A deactivated
+     * person cannot sign in, their open sessions stop working at once, and they receive no
+     * notifications. Their history on reports is kept. Reactivating sets this back to null.
+     */
+    disabledAt: timestamptz("disabled_at"),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
   },
   (table) => [

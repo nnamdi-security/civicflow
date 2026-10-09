@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   agencyScopeFor,
   canManageAgencies,
+  canDeactivateUser,
   canManageCategories,
+  canManageStaff,
   canManageSlaPolicy,
   canReassignReports,
   canViewAuditLog,
@@ -148,5 +150,50 @@ describe("administration permissions (platform admins only)", () => {
     ["canViewAuditLog", canViewAuditLog],
   ])("%s allows only a platform admin", (_name, check) => {
     expect(ROLES.filter((r) => check(actor(r)))).toEqual(["platform_admin"]);
+  });
+});
+
+describe("canManageStaff", () => {
+  it("allows platform admins and agency admins only", () => {
+    expect(ROLES.filter((r) => canManageStaff(actor(r)))).toEqual(["agency_admin", "platform_admin"]);
+  });
+});
+
+describe("canDeactivateUser", () => {
+  // `me` is the person pressing the button; the targets are other accounts.
+  const me = "user-me";
+  const officerOfA = { userId: "u1", role: "agency_officer", agencyId: A } as const;
+  const officerOfB = { userId: "u2", role: "agency_officer", agencyId: B } as const;
+  const adminOfA = { userId: "u3", role: "agency_admin", agencyId: A } as const;
+  const platform = { userId: "u4", role: "platform_admin", agencyId: null } as const;
+  const someResident = { userId: "u5", role: "resident", agencyId: null } as const;
+
+  it("lets a platform admin deactivate any staff account", () => {
+    for (const target of [officerOfA, officerOfB, adminOfA, platform]) {
+      expect(canDeactivateUser(actor("platform_admin"), me, target)).toBe(true);
+    }
+  });
+
+  it("lets an agency admin deactivate officers of their own agency only", () => {
+    const admin = actor("agency_admin"); // an admin of agency A
+    expect(canDeactivateUser(admin, me, officerOfA)).toBe(true);
+    expect(canDeactivateUser(admin, me, officerOfB)).toBe(false); // another agency
+    expect(canDeactivateUser(admin, me, adminOfA)).toBe(false); // another admin, even in their own agency
+    expect(canDeactivateUser(admin, me, platform)).toBe(false);
+  });
+
+  it("never allows deactivating yourself", () => {
+    expect(canDeactivateUser(actor("platform_admin"), "u1", officerOfA)).toBe(false);
+    expect(canDeactivateUser(actor("agency_admin"), "u1", officerOfA)).toBe(false);
+  });
+
+  it("never applies to residents", () => {
+    expect(canDeactivateUser(actor("platform_admin"), me, someResident)).toBe(false);
+  });
+
+  it("is not available to officers or residents", () => {
+    for (const role of ["agency_officer", "resident"] as const) {
+      for (const target of [officerOfA, adminOfA]) expect(canDeactivateUser(actor(role), me, target)).toBe(false);
+    }
   });
 });

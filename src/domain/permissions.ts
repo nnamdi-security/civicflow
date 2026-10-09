@@ -127,3 +127,45 @@ export function canManageCategories(actor: Actor): boolean {
 export function canViewAuditLog(actor: Actor): boolean {
   return actor.role === "platform_admin";
 }
+
+/**
+ * Who may open the staff-management screen and invite people (ADR 0014).
+ * Platform admins manage anyone; agency admins manage officers in their own agency.
+ * (WHICH roles and agencies you may invite is decided by `canProvisionUser`, above.)
+ */
+export function canManageStaff(actor: Actor): boolean {
+  return actor.role === "platform_admin" || (actor.role === "agency_admin" && actor.agencyId !== null);
+}
+
+/** The account someone wants to deactivate or reactivate. */
+export interface DeactivationTarget {
+  userId: string;
+  role: Role;
+  agencyId: string | null;
+}
+
+/**
+ * May `actor` deactivate (or reactivate) `target`?
+ *  - Nobody can deactivate themselves: it would lock them out mid-click, and the "last admin"
+ *    safety rule would be easy to bypass.
+ *  - Residents are never deactivated here; this screen is for staff accounts.
+ *  - Platform admins may deactivate any staff account.
+ *  - Agency admins may deactivate OFFICERS of their own agency only: not other admins, and not
+ *    anyone from another agency.
+ * `actorUserId` is separate from `actor` because `Actor` only describes role and agency.
+ */
+export function canDeactivateUser(actor: Actor, actorUserId: string, target: DeactivationTarget): boolean {
+  if (actorUserId === target.userId) return false;
+  if (target.role === "resident") return false;
+  switch (actor.role) {
+    case "platform_admin":
+      return true;
+    case "agency_admin":
+      return (
+        actor.agencyId !== null && target.role === "agency_officer" && target.agencyId === actor.agencyId
+      );
+    case "agency_officer":
+    case "resident":
+      return false;
+  }
+}

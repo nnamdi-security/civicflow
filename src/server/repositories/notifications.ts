@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Db, Tx } from "../../db/client";
 import { notifications, reports, users } from "../../db/schema";
 import {
@@ -30,11 +30,15 @@ async function recipientsFor(
       const rows = await db
         .select({ id: users.id })
         .from(users)
-        .where(and(eq(users.role, "agency_admin"), eq(users.agencyId, report.agencyId)));
+        // `isNull(disabledAt)` skips deactivated accounts: they must not be notified (ADR 0014).
+        .where(and(eq(users.role, "agency_admin"), eq(users.agencyId, report.agencyId), isNull(users.disabledAt)));
       return rows.map((row) => row.id);
     }
     case "platform_admins": {
-      const rows = await db.select({ id: users.id }).from(users).where(eq(users.role, "platform_admin"));
+      const rows = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.role, "platform_admin"), isNull(users.disabledAt)));
       return rows.map((row) => row.id);
     }
   }

@@ -71,6 +71,13 @@
       "when": 1791533825290,
       "tag": "0009_audit-log-and-agency-names",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791534326494,
+      "tag": "0010_user-deactivation",
+      "breakpoints": true
     }
   ]
 }

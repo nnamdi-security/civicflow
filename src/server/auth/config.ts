@@ -1,4 +1,6 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { eq } from "drizzle-orm";
+import type { Adapter } from "next-auth/adapters";
 import type { NextAuthConfig } from "next-auth";
 import { z } from "zod";
 import type { Db } from "../../db/client";
@@ -34,15 +36,53 @@ export function normalizeEmail(identifier: string): string {
   return emailSchema.parse(identifier);
 }
 
+/**
+ * True when the object looks like a user row that has been deactivated (ADR 0014).
+ *
+ * Auth.js hands our code "user" objects of several shapes: a full database row for an existing
+ * person, or a bare `{ id, email }` for someone signing in for the first time. So instead of
+ * assuming a shape, we look for the one field we care about and treat everything else as "not
+ * deactivated". `unknown` + checking is the safe way to read fields of a value we do not control.
+ */
+export function isDeactivatedUser(user: unknown): boolean {
+  if (typeof user !== "object" || user === null) return false;
+  const disabledAt = (user as { disabledAt?: unknown }).disabledAt;
+  return disabledAt instanceof Date || (typeof disabledAt === "string" && disabledAt !== "");
+}
+
+/**
+ * Wraps the stock database adapter so that a deactivated person's EXISTING sessions stop
+ * working immediately.
+ *
+ * How sessions work here: after signing in, the browser holds a cookie containing a random
+ * session token. On every request Auth.js asks the adapter "which session and user does this
+ * token belong to?" (`getSessionAndUser`). If we answer "none", Auth.js treats the visitor as
+ * signed out. So answering "none" for deactivated users ends their access on their very next
+ * request, with no waiting for the session to expire.
+ */
+export function withDeactivationCheck(base: Adapter): Adapter {
+  return {
+    ...base,
+    async getSessionAndUser(sessionToken) {
+      // `base.getSessionAndUser` is optional in the type, so we check it exists before calling.
+      const found = await base.getSessionAndUser?.(sessionToken);
+      if (!found) return found ?? null;
+      return isDeactivatedUser(found.user) ? null : found;
+    },
+  };
+}
+
 export function buildAuthConfig(deps: AuthDeps): NextAuthConfig {
   return {
     secret: deps.secret,
-    adapter: DrizzleAdapter(deps.db, {
-      usersTable: users,
-      accountsTable: accounts,
-      sessionsTable: sessions,
-      verificationTokensTable: verificationTokens,
-    }),
+    adapter: withDeactivationCheck(
+      DrizzleAdapter(deps.db, {
+        usersTable: users,
+        accountsTable: accounts,
+        sessionsTable: sessions,
+        verificationTokensTable: verificationTokens,
+      }),
+    ),
     session: { strategy: "database", maxAge: SESSION_MAX_AGE_SECONDS, updateAge: 24 * 60 * 60 },
     pages: { signIn: "/sign-in", verifyRequest: "/sign-in/check-email", error: "/sign-in" },
     providers: [
@@ -56,11 +96,28 @@ export function buildAuthConfig(deps: AuthDeps): NextAuthConfig {
           const key = rateLimitKey(deps.secret, "signin-email", identifier);
           const { allowed } = await deps.limiter.consume(key, EMAIL_RATE_RULE);
           if (!allowed) throw new SignInRateLimitedError();
+
+          // A deactivated account gets no sign-in link. We deliberately do NOT tell the person
+          // (or anyone probing addresses): the page still says "check your email", exactly as it
+          // does for an unknown address, so this cannot be used to discover who has an account.
+          const [account] = await deps.db
+            .select({ disabledAt: users.disabledAt })
+            .from(users)
+            .where(eq(users.email, identifier))
+            .limit(1);
+          if (account && isDeactivatedUser(account)) return;
+
           await deps.emailSender.send(signInEmail({ to: identifier, url }));
         },
       },
     ],
     callbacks: {
+      // Last line of defence at the moment of signing in: even if a link was sent before the
+      // account was deactivated, using it now is refused. Returning false makes Auth.js stop and
+      // show the sign-in page with an error instead of creating a session.
+      signIn({ user }) {
+        return !isDeactivatedUser(user);
+      },
       // With database sessions Auth.js passes the stored user row; role and agency come from
       // there on every request, so role changes and revocation apply immediately.
       session({ session, user }) {
