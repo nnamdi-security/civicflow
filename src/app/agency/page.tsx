@@ -4,7 +4,7 @@ import { SlaNotice } from "@/components/sla-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { systemClock } from "@/domain/clock";
 import { overdueTimers } from "@/domain/sla";
-import { agencyScopeFor, canViewTriageQueue } from "@/domain/permissions";
+import { agencyScopeFor, canViewPerformance, canViewTriageQueue } from "@/domain/permissions";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
 import { listReportsForScope } from "@/server/repositories/report-workflow";
@@ -23,6 +23,12 @@ export default async function AgencyInboxPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-6">
       <h1 className="text-2xl font-semibold">{scope.kind === "all" ? "All reports" : "Your agency's reports"}</h1>
+      {/* Only agency admins and platform admins get the performance link (see canViewPerformance). */}
+      {canViewPerformance(actor) ? (
+        <Link href="/agency/performance" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
+          Agency performance
+        </Link>
+      ) : null}
       {canViewTriageQueue(actor) ? (
         <Link href="/admin/triage" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
           Unrouted reports (triage)

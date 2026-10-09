@@ -9,6 +9,7 @@ import {
   DEFAULT_PERFORMANCE_WINDOW,
   MIN_RELIABLE_SAMPLE,
   disputeRatePercent,
+  formatDuration,
   parseWindow,
   percentOf,
   summariseTimer,
@@ -93,5 +94,29 @@ describe("parseWindow", () => {
     for (const bad of [undefined, null, "", "abc", "7", 7, "30; drop table", 0, NaN]) {
       expect(parseWindow(bad)).toBe(DEFAULT_PERFORMANCE_WINDOW);
     }
+  });
+});
+
+describe("formatDuration", () => {
+  it("shows minutes under an hour", () => {
+    expect(formatDuration(0)).toBe("under 1 min");
+    expect(formatDuration(1)).toBe("1 min");
+    expect(formatDuration(59)).toBe("59 min");
+  });
+
+  it("shows hours, dropping a zero minutes part", () => {
+    expect(formatDuration(60)).toBe("1 h");
+    expect(formatDuration(150)).toBe("2 h 30 min");
+    expect(formatDuration(24 * 60 - 1)).toBe("23 h 59 min");
+  });
+
+  it("shows days, dropping a zero hours part", () => {
+    expect(formatDuration(24 * 60)).toBe("1 d");
+    expect(formatDuration(25 * 60)).toBe("1 d 1 h");
+    expect(formatDuration(14 * 24 * 60)).toBe("14 d");
+  });
+
+  it("says there is no data for null", () => {
+    expect(formatDuration(null)).toBe("No data");
   });
 });

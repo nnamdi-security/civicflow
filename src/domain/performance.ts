@@ -108,3 +108,25 @@ export interface AgencyPerformance {
   disputes: number;
   disputeRatePercent: number | null;
 }
+
+/**
+ * Turns a number of minutes into short words a person can read at a glance:
+ *   45   -> "45 min"          150   -> "2 h 30 min"          1500  -> "1 d 1 h"
+ * Returns "No data" for null (nothing was measured). Used for the "median time" columns.
+ */
+export function formatDuration(minutes: number | null): string {
+  if (minutes === null) return "No data";
+  if (minutes < 1) return "under 1 min";
+  if (minutes < 60) return `${minutes} min`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours < 24) {
+    // Leave out "0 min" so exact hours read cleanly: "3 h", not "3 h 0 min".
+    return remainingMinutes === 0 ? `${hours} h` : `${hours} h ${remainingMinutes} min`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours === 0 ? `${days} d` : `${days} d ${remainingHours} h`;
+}
