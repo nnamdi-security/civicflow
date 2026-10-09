@@ -4,7 +4,7 @@ import { SlaNotice } from "@/components/sla-notice";
 import { StatusBadge } from "@/components/status-badge";
 import { systemClock } from "@/domain/clock";
 import { overdueTimers } from "@/domain/sla";
-import { agencyScopeFor, canViewPerformance, canViewTriageQueue } from "@/domain/permissions";
+import { agencyScopeFor, canManageStaff, canViewPerformance, canViewTriageQueue } from "@/domain/permissions";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
 import { listReportsForScope } from "@/server/repositories/report-workflow";
@@ -27,6 +27,12 @@ export default async function AgencyInboxPage() {
       {canViewPerformance(actor) ? (
         <Link href="/agency/performance" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
           Agency performance
+        </Link>
+      ) : null}
+      {/* Agency admins and platform admins can manage staff accounts. */}
+      {canManageStaff(actor) ? (
+        <Link href="/agency/staff" className="underline focus-visible:outline-2 focus-visible:outline-offset-2">
+          Staff
         </Link>
       ) : null}
       {canViewTriageQueue(actor) ? (

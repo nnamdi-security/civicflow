@@ -115,7 +115,15 @@ export function buildAuthConfig(deps: AuthDeps): NextAuthConfig {
       // Last line of defence at the moment of signing in: even if a link was sent before the
       // account was deactivated, using it now is refused. Returning false makes Auth.js stop and
       // show the sign-in page with an error instead of creating a session.
-      signIn({ user }) {
+      //
+      // IMPORTANT: Auth.js calls this callback TWICE for email sign-in. Once when the person asks
+      // for a link (`email.verificationRequest` is true) and again when they click it. We must
+      // only refuse the second time. If we also refused the first, a deactivated address would
+      // get an error page while an unknown address gets "check your email", which would let
+      // anyone discover which addresses belong to deactivated staff. At the request step we say
+      // nothing; `sendVerificationRequest` above quietly sends no email.
+      signIn({ user, email }) {
+        if (email?.verificationRequest) return true;
         return !isDeactivatedUser(user);
       },
       // With database sessions Auth.js passes the stored user row; role and agency come from

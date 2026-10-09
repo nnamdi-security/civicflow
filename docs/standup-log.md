@@ -2,6 +2,27 @@
 
 High-level, newest first. One entry per working day: what was done, what is next, and anything blocking. Commit hashes point to detail. Roadmap status lives in `roadmap.md`, not here.
 
+## 2026-10-09 (Phase 8, Part A)
+**Done**
+- Phase 8 Part A (agency dashboards and administration) completed. Part B (hardening and launch readiness) is next, after your review.
+  - Every time an agency acknowledges or resolves a report, the system now records whether it met the deadline and how long it took. This is the basis for the performance figures; history starts from today, so numbers build up over time.
+  - Agency admins can open a performance page for their own agency (on-time percentages, typical time taken, open and overdue reports, how often residents say "not fixed"). Platform admins see all agencies side by side. Nobody else can see it, and it is not public.
+  - Platform admins now have admin screens to create and edit agencies, choose which areas each agency covers (and in what priority), change the SLA deadlines (a written reason is required, and it only affects reports that start after the change), switch report categories on or off, and read an audit log of every administrative change. The audit log cannot be edited and contains no personal data.
+  - Agency admins can invite and deactivate officers in their own agency; platform admins can do this for any staff. Deactivating someone signs them out immediately, stops new sign-in links and stops notifications, while keeping their history. The system refuses to deactivate the last active platform admin, even if two admins try it at the same moment.
+  - Recorded the decisions as ADR 0014.
+- All new code is commented for beginners, as requested.
+- Tests: 613 unit and integration tests plus 9 end-to-end journeys, all passing.
+
+**Next**
+- Your review of Part A, then Part B: boundary-data importer, web security headers and error pages, accessibility checks, data retention and deletion, operations health page, launch checklist and runbook.
+
+**Blockers / risks**
+- Performance percentages rest on provisional SLA values until real targets are agreed.
+- Part B needs your input on: hosting, the real state/LGA boundary data source, and privacy notice wording.
+- Resend domain and Termii sender ID (real messages), worker hosting, and a live Cloudinary check are still outstanding.
+
+Commits: `33f39b8`..latest (Phase 8 Part A).
+
 ## 2026-10-09 (Phase 7)
 **Done**
 - Phase 7 (tracking and resident confirmation) completed.

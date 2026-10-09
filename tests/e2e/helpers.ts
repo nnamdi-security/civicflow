@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
+import { Pool } from "pg";
 
 const OUTBOX = path.join(process.cwd(), ".dev-outbox", "emails.jsonl");
 export const PHOTO = path.join(process.cwd(), "tests", "e2e", "fixtures", "pothole.png");
@@ -75,4 +76,24 @@ export async function latestSms(to: string): Promise<OutboxLine> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error("No SMS arrived in the dev outbox");
+}
+
+/**
+ * Clears the sign-in rate-limit counters.
+ *
+ * Why this exists: the app limits sign-in requests to 20 per 15 minutes per client address, to
+ * slow down abuse. In the test run EVERY simulated visitor comes from the same address, so a long
+ * suite of tests would eventually hit that limit even though each test behaves normally. The
+ * limit itself is not under test here, so each spec resets the counters when it starts.
+ * (This only touches the test database; it never runs against real data.)
+ */
+export async function resetRateLimits(): Promise<void> {
+  const url = process.env.E2E_DATABASE_URL ?? process.env.TEST_DATABASE_URL;
+  if (!url) throw new Error("Set TEST_DATABASE_URL (or E2E_DATABASE_URL) to run the end-to-end tests.");
+  const pool = new Pool({ connectionString: url });
+  try {
+    await pool.query("delete from rate_limits");
+  } finally {
+    await pool.end();
+  }
 }

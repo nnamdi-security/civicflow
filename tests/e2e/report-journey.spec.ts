@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { PHOTO, signInThroughEmail, stamp, stubMapTiles, sentLink } from "./helpers";
+import { PHOTO, signInThroughEmail, stamp, stubMapTiles, sentLink, resetRateLimits } from "./helpers";
+
+// Fresh sign-in counters for this spec (see resetRateLimits in helpers.ts).
+test.beforeAll(resetRateLimits);
 
 test("a signed-out visitor is sent to sign in and returns to the report form", async ({ page }) => {
   await stubMapTiles(page);

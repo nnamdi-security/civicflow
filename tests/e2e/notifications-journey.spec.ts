@@ -5,7 +5,7 @@ import { systemClock } from "../../src/domain/clock";
 import { DevOutboxEmailSender } from "../../src/server/adapters/email/dev-outbox-email-sender";
 import { DevOutboxSmsSender } from "../../src/server/adapters/sms/dev-outbox-sms-sender";
 import { runDispatch } from "../../src/server/notifications/dispatch";
-import { latestSms, readOutbox, signInThroughEmail, stamp, stubMapTiles, submitPothole } from "./helpers";
+import { latestSms, readOutbox, signInThroughEmail, stamp, stubMapTiles, submitPothole, resetRateLimits } from "./helpers";
 
 const AGENCY_NAME = "E2E Notify Agency";
 const OFFICER = `e2e-${stamp}-notify-officer@example.com`;
@@ -31,6 +31,7 @@ async function clear() {
 }
 
 test.beforeAll(async () => {
+  await resetRateLimits(); // fresh sign-in counters for this spec (see helpers.ts)
   pool = new Pool({ connectionString: databaseUrl() });
   await clear();
   const state = await pool.query<{ id: string }>(

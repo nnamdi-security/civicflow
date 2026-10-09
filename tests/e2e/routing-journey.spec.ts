@@ -3,7 +3,7 @@ import { Pool } from "pg";
 import { createDb } from "../../src/db/client";
 import { systemClock } from "../../src/domain/clock";
 import { runSlaScan } from "../../src/server/sla/scan";
-import { signInThroughEmail, stamp, stubMapTiles, submitPothole } from "./helpers";
+import { signInThroughEmail, stamp, stubMapTiles, submitPothole, resetRateLimits } from "./helpers";
 
 const AGENCY_NAME = "E2E Roads Agency";
 const OTHER_AGENCY_NAME = "E2E Other Agency";
@@ -30,6 +30,7 @@ async function clear() {
 }
 
 test.beforeAll(async () => {
+  await resetRateLimits(); // fresh sign-in counters for this spec (see helpers.ts)
   pool = new Pool({ connectionString: databaseUrl() });
   await clear();
   const state = await pool.query<{ id: string }>(

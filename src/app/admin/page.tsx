@@ -16,6 +16,7 @@ export default async function AdminHomePage() {
       <h1 className="text-2xl font-semibold">Administration</h1>
       <nav aria-label="Administration" className="flex flex-col gap-2">
         <Link href="/admin/agencies" className={linkClass}>Agencies and the areas they cover</Link>
+        <Link href="/agency/staff" className={linkClass}>Staff accounts</Link>
         <Link href="/admin/sla" className={linkClass}>SLA deadlines</Link>
         <Link href="/admin/categories" className={linkClass}>Report categories</Link>
         <Link href="/admin/triage" className={linkClass}>Unrouted reports (triage)</Link>

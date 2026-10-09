@@ -32,3 +32,5 @@ End-to-end (once, then as needed): `pnpm exec playwright install chromium` and `
 The `civicflow_test` database is created only when the Docker volume is first created. If it is missing, run `pnpm db:down` and remove the `civicflow_civicflow-pgdata` volume, then `pnpm db:up`.
 
 Public pages: `/track` finds a report by its code and shows progress only (ADR 0013). The overdue board at `/overdue` is off unless `PUBLIC_OVERDUE_BOARD=true`; leave it off until real SLA values are agreed.
+
+Administration (platform admins): `/admin` links to agencies and coverage, SLA deadlines, report categories, the audit log and staff accounts (`/agency/staff`, also used by agency admins for their own officers). Agency admins and platform admins can open `/agency/performance` for SLA performance figures. See ADR 0014. The first platform admin is created with `pnpm admin:create <email>`.

@@ -10,6 +10,7 @@ import { alias } from "drizzle-orm/pg-core";
 import type { Db } from "../../db/client";
 import { agencies, agencyJurisdictions, categories, jurisdictions, slaPolicies, users } from "../../db/schema";
 import type { AgencyScope } from "../../domain/permissions";
+import type { Role } from "../../domain/roles";
 import type { AgencyType } from "../../domain/agency-types";
 
 export interface AgencyListItem {
@@ -135,7 +136,8 @@ export async function listCategories(db: Db): Promise<CategoryRow[]> {
 export interface StaffRow {
   id: string;
   email: string;
-  role: string;
+  role: Role;
+  agencyId: string | null;
   agencyName: string | null;
   /** True when the account has been deactivated. */
   deactivated: boolean;
@@ -155,6 +157,7 @@ export async function listStaff(db: Db, scope: AgencyScope): Promise<StaffRow[]>
       id: users.id,
       email: users.email,
       role: users.role,
+      agencyId: users.agencyId,
       agencyName: agencies.name,
       disabledAt: users.disabledAt,
     })
@@ -171,6 +174,7 @@ export async function listStaff(db: Db, scope: AgencyScope): Promise<StaffRow[]>
     id: row.id,
     email: row.email,
     role: row.role,
+    agencyId: row.agencyId,
     agencyName: row.agencyName,
     deactivated: row.disabledAt !== null,
   }));

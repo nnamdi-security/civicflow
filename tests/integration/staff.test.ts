@@ -307,7 +307,11 @@ describe("deactivation really stops access", () => {
 
   it("refuses to complete a sign-in for a deactivated account, even with a link sent earlier", async () => {
     const { config } = authSetup();
-    const signIn = config.callbacks?.signIn as (params: { user: unknown }) => boolean;
+    // Auth.js passes more than `user`; the part we use is `email.verificationRequest`.
+    const signIn = config.callbacks?.signIn as (params: {
+      user: unknown;
+      email?: { verificationRequest?: boolean };
+    }) => boolean;
     await setStaffActive(deps(), platform, { userId: officerA.userId, active: false });
     const deactivated = await userRow(officerA.userId);
     const active = await userRow(officerB.userId);
@@ -315,6 +319,20 @@ describe("deactivation really stops access", () => {
     expect(signIn({ user: active })).toBe(true);
     // Someone signing in for the first time arrives as a bare object and must not be blocked.
     expect(signIn({ user: { id: "new", email: "new@example.com" } })).toBe(true);
+  });
+
+  it("does NOT refuse at the moment a link is requested, so the page cannot reveal a deactivated account", async () => {
+    const { config } = authSetup();
+    const signIn = config.callbacks?.signIn as (params: {
+      user: unknown;
+      email?: { verificationRequest?: boolean };
+    }) => boolean;
+    await setStaffActive(deps(), platform, { userId: officerA.userId, active: false });
+    const deactivated = await userRow(officerA.userId);
+    // Asking for a link (verificationRequest: true) is allowed to proceed for everyone, deactivated or not...
+    expect(signIn({ user: deactivated, email: { verificationRequest: true } })).toBe(true);
+    // ...while using a link (no verificationRequest flag) is refused for the deactivated account.
+    expect(signIn({ user: deactivated, email: { verificationRequest: false } })).toBe(false);
   });
 
   it("recognises a deactivated user object in the shapes Auth.js may pass", () => {
