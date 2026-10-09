@@ -79,6 +79,9 @@ export async function applyStatusChange(tx: Tx, change: StatusChange, clock: Clo
       status: change.to,
       ...(change.agencyId ? { agencyId: change.agencyId } : {}),
       ...(change.to === "routed" ? { routedAt: sql`coalesce(${reports.routedAt}, ${clock.now()})` } : {}),
+      // Auto-confirmation counts from the latest time the report entered `resolved` (ADR 0013).
+      ...(change.to === "resolved" ? { resolvedAt: clock.now() } : {}),
+      ...(change.to === "disputed" ? { resolvedAt: null } : {}),
       ackDueAt: timers.ackDueAt,
       resolveDueAt: timers.resolveDueAt,
       slaCycle: timers.slaCycle,
@@ -267,4 +270,25 @@ export async function listReportPhotos(db: Db, reportId: string) {
     .from(reportMedia)
     .where(eq(reportMedia.reportId, reportId))
     .orderBy(asc(reportMedia.position));
+}
+
+/**
+ * Records the finest jurisdiction covering the report's point (no covering child; the lowest id on a
+ * shared boundary), for public area names. Runs in the creation transaction. Null if nothing covers it.
+ */
+export async function assignReportJurisdiction(tx: Tx, reportId: string): Promise<void> {
+  await tx.execute(sql`
+    update reports r
+    set jurisdiction_id = (
+      select j.id from jurisdictions j
+      where ST_Covers(j.geom, r.location::geometry)
+        and not exists (
+          select 1 from jurisdictions c
+          where c.parent_id = j.id and ST_Covers(c.geom, r.location::geometry)
+        )
+      order by j.id
+      limit 1
+    )
+    where r.id = ${reportId}
+  `);
 }

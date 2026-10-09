@@ -234,3 +234,12 @@ describe("report SLA columns", () => {
     expect(report).toMatchObject({ ackDueAt: null, resolveDueAt: null, slaCycle: 0 });
   });
 });
+
+describe("resolved reports need a resolved time", () => {
+  it("rejects status resolved without resolved_at, and accepts it with one", async () => {
+    const agency = await createAgency();
+    await expect(createReport({ status: "resolved", agencyId: agency.id })).rejects.toThrow();
+    const ok = await createReport({ status: "resolved", agencyId: agency.id, resolvedAt: new Date() });
+    expect(ok.report.resolvedAt).not.toBeNull();
+  });
+});

@@ -14,7 +14,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { REPORT_STATUSES } from "../../domain/reports/status";
 import { SLA_TIMERS } from "../../domain/sla";
-import { agencies, agencyTypeEnum } from "./agencies";
+import { agencies, agencyTypeEnum, jurisdictions } from "./agencies";
 import { users } from "./auth";
 import { geographyPoint } from "./postgis";
 
@@ -69,6 +69,10 @@ export const reports = pgTable(
     agencyId: uuid("agency_id").references(() => agencies.id),
     /** When the report first reached `routed`; Phase 5 SLA timers start here. */
     routedAt: timestamptz("routed_at"),
+    /** Finest jurisdiction covering the point, for public area names. Null if none covers it. */
+    jurisdictionId: uuid("jurisdiction_id").references(() => jurisdictions.id),
+    /** When the report last entered `resolved`; cleared on dispute. Drives auto-confirmation (ADR 0013). */
+    resolvedAt: timestamptz("resolved_at"),
     /** Null while the acknowledgement timer is not running. */
     ackDueAt: timestamptz("ack_due_at"),
     /** Null while the resolution timer is not running. */
@@ -88,6 +92,9 @@ export const reports = pgTable(
     index("reports_ack_due_idx").on(table.ackDueAt).where(sql`${table.ackDueAt} is not null`),
     index("reports_resolve_due_idx").on(table.resolveDueAt).where(sql`${table.resolveDueAt} is not null`),
     check("reports_sla_cycle_nonnegative", sql`${table.slaCycle} >= 0`),
+    index("reports_jurisdiction_idx").on(table.jurisdictionId),
+    index("reports_resolved_at_idx").on(table.resolvedAt).where(sql`${table.status} = 'resolved'`),
+    check("reports_resolved_has_time", sql`${table.status} <> 'resolved' or ${table.resolvedAt} is not null`),
     unique("reports_reporter_idempotency_unique").on(table.reporterId, table.idempotencyKey),
     check(
       "reports_routed_has_agency",

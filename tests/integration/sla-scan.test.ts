@@ -112,7 +112,7 @@ describe("runSlaScan: ladder timing", () => {
   });
 
   it("ignores reports whose timers are not running", async () => {
-    await report({ ackDueAt: null, resolveDueAt: null, status: "resolved" });
+    await report({ ackDueAt: null, resolveDueAt: null, status: "resolved", resolvedAt: DUE });
     expect(await runSlaScan(conn.db, at(500 * HOUR))).toEqual({ recorded: 0 });
   });
 });

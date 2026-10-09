@@ -520,3 +520,41 @@ describe("notifications queued by the workflow", () => {
     expect(await escalationRows()).toHaveLength(4);
   });
 });
+
+describe("area and resolved time (ADR 0013)", () => {
+  const row = async (id: string) =>
+    (await conn.db.select({ area: reports.jurisdictionId, resolvedAt: reports.resolvedAt }).from(reports).where(eq(reports.id, id)))[0];
+
+  it("records the covering jurisdiction at creation, and none outside coverage", async () => {
+    expect((await row(await submit()))?.area).toBe(stateId);
+    expect((await row(await submit(OUTSIDE)))?.area).toBeNull();
+  });
+
+  it("stamps resolved_at on resolve, clears it on dispute, and stamps again on the next resolve", async () => {
+    const id = await submit();
+    expect((await row(id))?.resolvedAt).toBeNull();
+
+    for (const status of ["acknowledged", "in_progress"]) await changeReportStatus(deps, officerA, to(id, status));
+    clock.advance(2 * HOUR);
+    await changeReportStatus(deps, officerA, to(id, "resolved"));
+    const firstResolved = after(0);
+    expect((await row(id))?.resolvedAt).toEqual(firstResolved);
+
+    clock.advance(DAY);
+    await changeReportStatus(deps, resident, to(id, "disputed", "still broken"));
+    expect((await row(id))?.resolvedAt).toBeNull();
+
+    await changeReportStatus(deps, officerA, to(id, "in_progress"));
+    clock.advance(DAY);
+    await changeReportStatus(deps, officerA, to(id, "resolved"));
+    expect((await row(id))?.resolvedAt).toEqual(after(0));
+  });
+
+  it("keeps resolved_at when the resident confirms", async () => {
+    const id = await resolvedReport();
+    const stamped = (await row(id))?.resolvedAt;
+    expect(stamped).not.toBeNull();
+    await changeReportStatus(deps, resident, to(id, "confirmed"));
+    expect((await row(id))?.resolvedAt).toEqual(stamped);
+  });
+});
