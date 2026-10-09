@@ -1,5 +1,6 @@
 import type { PgBoss } from "pg-boss";
 import { runAutoConfirm, type AutoConfirmDeps, type AutoConfirmResult } from "../reports/auto-confirm";
+import { withHeartbeat } from "./heartbeat";
 
 export const AUTO_CONFIRM_QUEUE = "auto-confirm";
 /** Hourly: confirming a day late is harmless, and the scan is idempotent. */
@@ -14,6 +15,6 @@ export async function registerAutoConfirm(boss: PgBoss, deps: AutoConfirmJobDeps
   await boss.createQueue(AUTO_CONFIRM_QUEUE);
   await boss.schedule(AUTO_CONFIRM_QUEUE, AUTO_CONFIRM_CRON);
   await boss.work(AUTO_CONFIRM_QUEUE, async () => {
-    deps.onRun?.(await runAutoConfirm(deps));
+    deps.onRun?.(await withHeartbeat(deps.db, deps.clock, "auto-confirm", () => runAutoConfirm(deps)));
   });
 }

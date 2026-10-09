@@ -74,6 +74,13 @@ test.describe("security headers", () => {
   test("API routes and pages that do not exist still get the basic headers", async ({ request }) => {
     const health = await request.get("/api/health");
     expect(health.headers()["x-content-type-options"]).toBe("nosniff");
+    // The public health check says only whether the site and the background worker are alive: two
+    // words, nothing else (no counts, no error details).
+    const body = await health.json();
+    expect(Object.keys(body).sort()).toEqual(["status", "worker"]);
+    expect(body.status).toBe("ok");
+    expect(["ok", "degraded", "unknown"]).toContain(body.worker);
+    expect(health.headers()["cache-control"]).toBe("no-store");
     const missing = await request.get("/this-page-does-not-exist");
     expect(missing.status()).toBe(404);
     expect(missing.headers()["x-content-type-options"]).toBe("nosniff");

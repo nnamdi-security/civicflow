@@ -6,6 +6,7 @@ import type { PgBoss } from "pg-boss";
 import type { Db } from "../../db/client";
 import type { Clock } from "../../domain/clock";
 import { runRetention, type RetentionResult } from "../retention/run";
+import { withHeartbeat } from "./heartbeat";
 
 export const RETENTION_QUEUE = "retention";
 /** Every day at 03:00 UTC (04:00 in Nigeria), when the site is quiet. "0 3 * * *" is cron for that. */
@@ -22,6 +23,6 @@ export async function registerRetention(boss: PgBoss, deps: RetentionJobDeps): P
   await boss.createQueue(RETENTION_QUEUE);
   await boss.schedule(RETENTION_QUEUE, RETENTION_CRON);
   await boss.work(RETENTION_QUEUE, async () => {
-    deps.onRun?.(await runRetention(deps.db, deps.clock));
+    deps.onRun?.(await withHeartbeat(deps.db, deps.clock, "retention", () => runRetention(deps.db, deps.clock)));
   });
 }

@@ -148,7 +148,7 @@ test("a platform admin sets up an agency and staff; the agency admin then sees o
   await expect(officer.getByRole("status")).toHaveText("Status updated.");
 
   // ---- 5. Officers cannot reach admin, staff-management or performance pages. -----------------
-  for (const path of ["/admin", "/admin/agencies", "/admin/audit", "/agency/staff", "/agency/performance"]) {
+  for (const path of ["/admin", "/admin/agencies", "/admin/audit", "/admin/health", "/agency/staff", "/agency/performance"]) {
     expect((await officer.goto(path))?.status(), `officer opening ${path}`).toBe(404);
   }
   await officerContext.close();
@@ -183,6 +183,15 @@ test("a platform admin sets up an agency and staff; the agency admin then sees o
   await page.goto("/agency/performance");
   await expect(page.getByRole("heading", { name: "Agency performance" })).toBeVisible();
   await expect(page.getByRole("row").filter({ hasText: AGENCY })).toBeVisible();
+
+  // The system health page lists every background job (the worker is not running in this test, so
+  // they have not reported in) and shows no personal data.
+  await page.goto("/admin/health");
+  await expect(page.getByRole("heading", { name: "System health" })).toBeVisible();
+  for (const job of ["sla-scan", "notification-dispatch", "auto-confirm", "retention", "media-cleanup"]) {
+    await expect(page.getByRole("row").filter({ hasText: job })).toBeVisible();
+  }
+  expect(await page.locator("main").innerText()).not.toContain(OFFICER);
 
   await page.goto("/admin/audit");
   const auditText = await page.locator("main").innerText();

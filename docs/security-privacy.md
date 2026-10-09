@@ -53,6 +53,11 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 
 Erasing a resident's account removes their identity and contact details, redacts their free text, coarsens their reports' locations and deletes their photos, while keeping each report's category, status, agency, area and timeline (ADR 0015). Residents can download their data as JSON. Backups taken before an erasure retain the data until they expire, so backup retention must be short (see the runbook).
 
+## Operations visibility (Phase 8 Part B)
+- Every background job records a heartbeat (when it last ran, and "ok" or "error" with a short code, never a message) in `job_heartbeats`. `/admin/health` (platform admins only) shows each job's status, the messages waiting or stuck, and photo deletions waiting or failed. All of it is counts, times and words: no personal data.
+- `GET /api/health` is public and returns only `{status, worker}`: `status` is the website and its database (503 if the database is unreachable), `worker` is `ok`, `degraded` or `unknown`. The worker verdict never changes the HTTP status, because the website itself is fine without the worker; monitoring should alert on `degraded`.
+- **Known limitation**: Next.js writes uncaught server errors to the server log itself, and a database error can include values from the failing row. Access to production logs must be restricted and log retention kept short (see the runbook).
+
 ## Anonymous reporting
 Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR if sign-in proves a barrier; anonymous reporting would need a CAPTCHA-style control and token-based tracking.
 

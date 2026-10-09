@@ -181,6 +181,7 @@ test("every page for residents, staff and admins is accessible, in the states pe
     ["/admin/sla", "SLA deadlines"],
     ["/admin/categories", "report categories"],
     ["/admin/audit", "audit log"],
+    ["/admin/health", "system health"],
     ["/admin/triage", "triage queue"],
     ["/agency/performance", "performance dashboard (platform admin)"],
     ["/agency/staff", "staff management (platform admin)"],

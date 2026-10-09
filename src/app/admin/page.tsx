@@ -22,6 +22,7 @@ export default async function AdminHomePage() {
         <Link href="/admin/triage" className={linkClass}>Unrouted reports (triage)</Link>
         <Link href="/agency/performance" className={linkClass}>Agency performance</Link>
         <Link href="/admin/audit" className={linkClass}>Audit log</Link>
+        <Link href="/admin/health" className={linkClass}>System health</Link>
       </nav>
     </main>
   );
