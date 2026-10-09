@@ -13,7 +13,7 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 ## Personal data (NDPA)
 - Collect only what's needed: contact for notifications, location of the issue.
 - Public views never show reporter identity or contact details.
-- Retention period and deletion process: TBD.
+- Retention, erasure and export: see ADR 0015 and the "Retention, erasure and export" section below. All periods are provisional pending review by a data-protection adviser.
 - Treat photo EXIF and precise home-adjacent locations as sensitive.
 
 ## Notifications and phone numbers (Phase 6)
@@ -36,9 +36,22 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 ## Web hardening (Phase 8 Part B)
 - **Content Security Policy** (`src/server/security/csp.ts`, applied per request by `src/proxy.ts`): scripts run only if they come from our own site or carry that request's random nonce (`'strict-dynamic'`); no inline or eval scripts in production. Images may also come from the OpenStreetMap tile server and, when configured, Cloudinary; network requests may also go to Cloudinary's upload address. Plugins, framing and changing form targets are blocked. Inline *styles* are allowed on purpose: injected CSS is far less dangerous than injected scripts, and it keeps Leaflet and Next.js styling working. Because the nonce needs a fresh render, the previously static pages (home, check-email) are now rendered per request.
 - **Other headers** (`next.config.ts`): `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera, microphone, payment, USB off; geolocation for our own pages only), `X-Frame-Options: DENY`, `Cross-Origin-Opener-Policy: same-origin`, and in production `Strict-Transport-Security` for 180 days (no `includeSubDomains` or preload, to avoid committing the whole domain before hosting is decided). The `X-Powered-By` header is removed.
-- **Error pages**: `error.tsx`, `global-error.tsx` and `not-found.tsx` show a generic message and, for errors, only Next.js's opaque reference code (also written to the server log) so support can find the failure; the technical error text is never shown. A missing page and a page the visitor may not see look identical.
+- **Error pages**: `error.tsx`, `global-error.tsx` and `not-found.tsx` show a generic message and, for errors, only Next.js's opaque reference code (also written to the server log) so support can find the failure; the technical error text is never shown. A missing page and a page the visitor may not see look identical, including the HTTP status (404). For that reason there is deliberately **no root `loading.tsx`**: a loading boundary makes Next.js stream the response with status 200 before `notFound()` can run, which would make hidden pages distinguishable from missing ones.
 - **Accessibility**: an automated axe-core check covers every page in the states people really see and passes. Automated checks find only part of the problems, so keyboard and screen-reader testing by a person is on the launch checklist. The map widget itself is excluded from the automated check; typed coordinates and "use my location" are the accessible alternatives.
 - **Not verified**: the strict script policy has been exercised in development (the E2E server runs `next dev`). Production differs only in not allowing `eval`, adding `upgrade-insecure-requests`, and HSTS; it should be smoke-tested on the real deployment before launch.
+
+## Retention, erasure and export (Phase 8 Part B)
+| Data | Kept for |
+|---|---|
+| Rate-limit counters | 7 days |
+| Expired phone codes, sessions and sign-in tokens | removed once expired |
+| Delivered or skipped notification records | 90 days |
+| Failed notification records | 180 days |
+| Reports and their status history | kept (accountability record) |
+| Audit log | kept |
+| Account data (email, name, phone) | until the user erases the account |
+
+Erasing a resident's account removes their identity and contact details, redacts their free text, coarsens their reports' locations and deletes their photos, while keeping each report's category, status, agency, area and timeline (ADR 0015). Residents can download their data as JSON. Backups taken before an erasure retain the data until they expire, so backup retention must be short (see the runbook).
 
 ## Anonymous reporting
 Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR if sign-in proves a barrier; anonymous reporting would need a CAPTCHA-style control and token-based tracking.
