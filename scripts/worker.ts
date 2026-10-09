@@ -4,6 +4,7 @@ import { systemClock } from "../src/domain/clock";
 import { createEmailSender } from "../src/server/adapters/email";
 import { createSmsSender } from "../src/server/adapters/sms";
 import { parseAppEnv, parseEmailEnv, parseSmsEnv } from "../src/server/env";
+import { registerAutoConfirm } from "../src/server/jobs/auto-confirm-job";
 import { registerNotificationDispatch } from "../src/server/jobs/notification-dispatch-job";
 import { registerSlaScan } from "../src/server/jobs/sla-scan-job";
 
@@ -24,6 +25,13 @@ async function main() {
       if (result.recorded > 0) console.log(`SLA scan recorded ${result.recorded} escalation(s)`);
     },
   });
+  await registerAutoConfirm(boss, {
+    db,
+    clock: systemClock,
+    onRun: (result) => {
+      if (result.confirmed > 0) console.log(`Auto-confirmed ${result.confirmed} resolved report(s)`);
+    },
+  });
   const sms = createSmsSender(parseSmsEnv(process.env));
   await registerNotificationDispatch(boss, {
     db,
@@ -40,7 +48,7 @@ async function main() {
       }
     },
   });
-  console.log(`Worker started: SLA scan and notification dispatch run every minute${sms ? "" : " (SMS disabled)"}.`);
+  console.log(`Worker started: SLA scan and notification dispatch run every minute, auto-confirm hourly${sms ? "" : " (SMS disabled)"}.`);
 
   const shutdown = async () => {
     await boss.stop();

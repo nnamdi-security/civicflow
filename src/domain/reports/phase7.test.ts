@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fixedClock } from "../clock";
-import { AUTO_CONFIRM_DAYS, AUTO_CONFIRM_REASON, autoConfirmDueAt, isAutoConfirmDue } from "./auto-confirm";
+import { AUTO_CONFIRM_DAYS, AUTO_CONFIRM_REASON, autoConfirmCutoff, autoConfirmDueAt, isAutoConfirmDue } from "./auto-confirm";
 import { daysOverdue, toPublicReport, type PublicReportSource } from "./public-view";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -25,6 +25,14 @@ describe("auto-confirm timing", () => {
 
   it("is never due without a resolved time", () => {
     expect(isAutoConfirmDue(null, at(1000 * DAY))).toBe(false);
+  });
+
+  it("has a cutoff that agrees with isAutoConfirmDue at the boundary", () => {
+    for (const offset of [-1000, 0, 1000]) {
+      const clock = at(14 * DAY + offset);
+      const beforeCutoff = RESOLVED.getTime() < autoConfirmCutoff(clock).getTime();
+      expect(beforeCutoff).toBe(isAutoConfirmDue(RESOLVED, clock));
+    }
   });
 });
 
