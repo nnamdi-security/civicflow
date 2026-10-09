@@ -13,6 +13,8 @@ const NOTICES: Record<string, { text: string; ok: boolean }> = {
   expired: { text: "That code has expired. Request a new one.", ok: false },
   too_many_attempts: { text: "Too many wrong codes. Request a new one.", ok: false },
   wrong_code: { text: "That code is not right. Check it and try again.", ok: false },
+  wrong_confirmation: { text: "To delete your account, type the word DELETE in capital letters.", ok: false },
+  already_erased: { text: "This account has already been deleted.", ok: false },
   phone_not_verified: { text: "Confirm your phone number before turning on SMS updates.", ok: false },
 };
 

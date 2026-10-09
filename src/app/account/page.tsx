@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/button";
-import { agencyScopeFor } from "@/domain/permissions";
+import { agencyScopeFor, canEraseAccount } from "@/domain/permissions";
 import { auth } from "@/server/auth";
 import { getActor } from "@/server/auth/guards";
 import { getDb } from "@/server/db";
 import { findAgencyName } from "@/server/repositories/agencies";
 import { getSmsSender } from "@/server/account/deps";
 import { findNotificationSettings } from "@/server/repositories/account";
-import { confirmPhoneAction, removePhoneAction, savePreferencesAction, signOutAction, startPhoneAction } from "./actions";
+import { confirmPhoneAction, eraseAccountAction, removePhoneAction, savePreferencesAction, signOutAction, startPhoneAction } from "./actions";
 import { noticeFor } from "./messages";
 
 const ROLE_LABELS = {
@@ -142,6 +142,51 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
               </form>
             ) : null}
           </div>
+        </section>
+      ) : null}
+
+      {/* Download a copy of your data. Available to everyone who is signed in. */}
+      <section aria-labelledby="data-heading" className="flex flex-col gap-2">
+        <h2 id="data-heading" className="text-lg font-semibold">Your data</h2>
+        <p>You can download a copy of the personal information we hold about you, as a file.</p>
+        <a
+          href="/account/export"
+          className="underline focus-visible:outline-2 focus-visible:outline-offset-2"
+          download
+        >
+          Download my data
+        </a>
+      </section>
+
+      {/* Deleting an account is for residents only; staff are deactivated by an administrator instead. */}
+      {canEraseAccount(actor) ? (
+        <section aria-labelledby="delete-heading" className="flex flex-col gap-2">
+          <h2 id="delete-heading" className="text-lg font-semibold">Delete my account</h2>
+          <details className="rounded-md border border-current p-3">
+            <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
+              I want to permanently delete my account
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              <p>This cannot be undone. When you delete your account:</p>
+              <ul className="list-disc pl-6">
+                <li>your email address, name and phone number are removed, and you are signed out everywhere;</li>
+                <li>the descriptions and photos of your reports are deleted, and their exact locations are blurred;</li>
+                <li>any notes you wrote in a report&rsquo;s history are removed.</li>
+              </ul>
+              <p>
+                Your reports stay on record without any personal details (what kind of problem, which agency, which area,
+                and what happened and when), so the public history of what agencies did is kept. The agency can no
+                longer contact you about them.
+              </p>
+              <form action={eraseAccountAction} className="flex flex-col gap-2">
+                <label className="flex flex-col gap-1">
+                  <span className="font-medium">Type DELETE to confirm</span>
+                  <input name="confirmation" autoComplete="off" required className={fieldClass} />
+                </label>
+                <Button type="submit" className="self-start">Delete my account permanently</Button>
+              </form>
+            </div>
+          </details>
         </section>
       ) : null}
 

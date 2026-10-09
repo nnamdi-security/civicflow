@@ -3,6 +3,7 @@ import {
   agencyScopeFor,
   canManageAgencies,
   canDeactivateUser,
+  canEraseAccount,
   canManageCategories,
   canManageStaff,
   canManageSlaPolicy,
@@ -195,5 +196,11 @@ describe("canDeactivateUser", () => {
     for (const role of ["agency_officer", "resident"] as const) {
       for (const target of [officerOfA, adminOfA]) expect(canDeactivateUser(actor(role), me, target)).toBe(false);
     }
+  });
+});
+
+describe("canEraseAccount", () => {
+  it("is for residents only; staff are deactivated by an admin instead", () => {
+    expect(ROLES.filter((r) => canEraseAccount(actor(r)))).toEqual(["resident"]);
   });
 });

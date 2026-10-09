@@ -6,6 +6,7 @@ import { ResendEmailSender } from "./resend-email-sender";
 export { EmailDeliveryError } from "./email-sender";
 export type { EmailMessage, EmailSender } from "./email-sender";
 export { FakeEmailSender } from "./fake-email-sender";
+export { accountErasedEmail } from "./templates/account-erased";
 export { signInEmail } from "./templates/sign-in";
 
 /** Resend when configured; the dev outbox outside production; otherwise a hard failure. */

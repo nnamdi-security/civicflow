@@ -169,3 +169,12 @@ export function canDeactivateUser(actor: Actor, actorUserId: string, target: Dea
       return false;
   }
 }
+
+/**
+ * Who may erase their own account (ADR 0015): ordinary residents only.
+ * Staff accounts are not erased this way, because the audit log and report history refer to
+ * them; a staff member who leaves is DEACTIVATED by an admin instead (ADR 0014).
+ */
+export function canEraseAccount(actor: Actor): boolean {
+  return actor.role === "resident";
+}

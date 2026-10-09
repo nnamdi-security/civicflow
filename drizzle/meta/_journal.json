@@ -92,6 +92,13 @@
       "when": 1791537204217,
       "tag": "0012_media-deletions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791537429196,
+      "tag": "0013_account-erasure",
+      "breakpoints": true
     }
   ]
 }

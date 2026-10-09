@@ -42,6 +42,12 @@ export const users = pgTable(
      * notifications. Their history on reports is kept. Reactivating sets this back to null.
      */
     disabledAt: timestamptz("disabled_at"),
+    /**
+     * When the person erased their account (ADR 0015), or null. An erased account keeps its row
+     * (reports and history point at it) but holds no personal data: the email is a placeholder,
+     * and name, picture and phone are removed. It is also deactivated, so nobody can sign in to it.
+     */
+    erasedAt: timestamptz("erased_at"),
     createdAt: timestamptz("created_at").notNull().defaultNow(),
   },
   (table) => [

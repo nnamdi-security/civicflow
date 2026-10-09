@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getPhoneDeps } from "@/server/account/deps";
+import { getEraseDeps, getPhoneDeps } from "@/server/account/deps";
+import { eraseAccount } from "@/server/account/erase";
 import { updateNotificationPreferences } from "@/server/account/preferences";
 import { confirmPhoneVerification, removePhone, startPhoneVerification } from "@/server/account/phone";
 import { signOut } from "@/server/auth";
@@ -46,4 +47,16 @@ export async function savePreferencesAction(formData: FormData): Promise<void> {
     notifySms: formData.get("notifySms") === "on",
   });
   back(result.ok ? "preferences_saved" : result.reason);
+}
+
+/**
+ * Erases the signed-in resident's own account (ADR 0015). The person comes from the session, never
+ * from the form. On success they are signed out and sent to the home page with a short message;
+ * otherwise they go back to the account page with a reason.
+ */
+export async function eraseAccountAction(formData: FormData): Promise<void> {
+  const actor = await requireActor();
+  const result = await eraseAccount(getEraseDeps(), actor, { confirmation: text(formData, "confirmation") });
+  if (!result.ok) back(result.reason);
+  await signOut({ redirectTo: "/?erased=1" });
 }

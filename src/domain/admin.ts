@@ -25,6 +25,8 @@ export const AUDIT_ACTIONS = [
   "staff.invited",
   "staff.deactivated",
   "staff.reactivated",
+  // A resident erased their own account (ADR 0015). Recorded without any personal data.
+  "account.erased",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
