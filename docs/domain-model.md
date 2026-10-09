@@ -2,7 +2,7 @@
 
 ## Entities (draft)
 - **Report** — category, description, location, status, reporter, assigned agency, timestamps. `jurisdiction_id` records the finest jurisdiction covering the point, for public area names (Phase 7); `resolved_at` is when it last entered `resolved`, cleared on dispute. Implemented (Phase 3) without the agency link, which arrives with routing. Location is `geography(Point, 4326)`; description is 10–1000 characters of sanitized plain text; a short reference code (`CF-XXXXXXXX`) is shown to the reporter; a per-reporter idempotency key makes resubmits safe. Rules live in `src/domain/reports/`.
-- **User** — email (lowercase, unique), role, optional agency. Implemented (Phase 2).
+- **User** — email (lowercase, unique), role, optional agency. Implemented (Phase 2). `disabled_at` deactivates the account (Phase 8): sign-in and sessions stop working at once, history is kept.
 - **Agency** — name, type (roads, drainage, water, power, waste, streetlights), contacts, jurisdiction(s). Implemented without contacts.
 - **Category** — name, default agency type, SLA policy. Implemented without SLA policy (Phase 5); the six launch categories are seeded by migration.
 - **Jurisdiction** — administrative boundary (state/LGA) as a PostGIS polygon, with an optional parent. Implemented (Phase 2).
@@ -10,6 +10,8 @@
 - **Assignment** — report-to-agency link with history (reassignments). Append-only; `reports.agency_id` holds the current agency (ADR 0009).
 - **StatusEvent** — append-only log of every status change (actor, from, to, reason, time). Implemented (Phase 3): a database trigger rejects UPDATE and DELETE. Every report starts with a null → `submitted` event written in the same transaction as the report.
 - **SlaPolicy** — acknowledge and resolve durations per category. Placeholder values (Phase 5, ADR 0010).
+- **SlaOutcome** — append-only record written when an acknowledgement or resolution timer stops: agency, timer, SLA cycle, start, deadline, stop and whether it was met. Feeds the dashboards (Phase 8, ADR 0014).
+- **AuditLog** — append-only record of administrative changes: actor, action, target and a short summary, never personal data (Phase 8, ADR 0014).
 - **Escalation** — append-only record that a report passed an escalation level for a timer in an SLA cycle. Unique per report, timer, level and cycle (Phase 5).
 - **Confirmation** — resident verdict on a resolution (confirmed/disputed, note).
 - **Media** — Cloudinary asset references for a report. Implemented (Phase 3): one to three photos per report, stored as provider `public_id` plus format, size and position (ADR 0008).

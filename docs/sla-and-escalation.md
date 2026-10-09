@@ -28,6 +28,16 @@ Durations are calendar time, not business hours. They are stored in the `sla_pol
 - A deadline is overdue strictly after it: at exactly the deadline the report is not yet overdue.
 - All SLA math is UTC. Deadlines are `timestamptz` columns on `reports`, indexed. Domain code takes an injected clock.
 
+## Measuring performance (Phase 8)
+- When the acknowledgement or resolution timer stops because of `acknowledged` or `resolved`, an `sla_outcomes` row records the agency, SLA cycle, start, deadline, stop time and whether it was met. **Met** means stopped at or before the deadline: exactly on the deadline is met, one second later is not.
+- Timers ended by a rejection, a reassignment or a dispute produce no outcome.
+- The agency dashboards (30 or 90 days, by stop date) report on-time percentages, median times, open and overdue counts and the dispute rate. History starts when the outcomes table was introduced. See ADR 0014.
+
+## Changing SLA policy (Phase 8)
+- Platform admins edit durations per category in the admin screen. A short note is required and the change is written to the audit log.
+- A change applies only to timers that start afterwards. Timers already running keep their deadline. There is no backfill of running timers.
+- The values currently in use are still the provisional placeholders until real targets are agreed.
+
 ## Escalation ladder
 **PROVISIONAL.** Measured from the missed deadline, separately for the acknowledgement and resolution timers:
 

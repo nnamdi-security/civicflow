@@ -6,8 +6,8 @@ Give Nigerian residents a reliable way to report infrastructure problems (roads,
 ## Personas
 - **Resident** — reports issues (with photo and map location), tracks progress, confirms or disputes resolution.
 - **Agency officer** — receives routed reports, acknowledges, updates status, resolves.
-- **Agency admin** — manages officers, sees SLA performance for their agency.
-- **Platform admin** — manages agencies, categories, jurisdictions, SLA policy, manual reassignment.
+- **Agency admin** — invites and deactivates officers, sees SLA performance for their agency (Phase 8 dashboard).
+- **Platform admin** — manages agencies, categories, jurisdiction coverage, SLA policy and staff, compares agencies, manual reassignment (Phase 8 admin screens).
 
 ## Core journeys
 1. Report: pick category, drop pin, add photo and description, submit.

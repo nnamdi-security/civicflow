@@ -28,6 +28,11 @@ Roles: resident, agency_officer, agency_admin, platform_admin. Agency staff see 
 - The public overdue board is off unless `PUBLIC_OVERDUE_BOARD=true`.
 - Auto-confirmation is recorded in the history as an automatic system action.
 
+## Administration and audit (Phase 8)
+- Dashboards show aggregate figures only, scoped to the viewer's agency inside the query (platform admins see all). They are never public.
+- Every administrative change (agency, coverage, SLA policy, categories, staff invitations and deactivation) is written to an append-only audit log with the actor, action, target and a short summary. The log holds ids and role names, never emails or phone numbers.
+- Deactivating a staff account blocks sign-in and ends the session at once; it keeps their history. Staff cannot change roles or be hard-deleted through the app.
+
 ## Anonymous reporting
 Not offered: reports require a signed-in user (ADR 0007). Revisit with a new ADR if sign-in proves a barrier; anonymous reporting would need a CAPTCHA-style control and token-based tracking.
 
