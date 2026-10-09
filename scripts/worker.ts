@@ -5,6 +5,7 @@ import { createEmailSender } from "../src/server/adapters/email";
 import { createSmsSender } from "../src/server/adapters/sms";
 import { parseAppEnv, parseEmailEnv, parseSmsEnv } from "../src/server/env";
 import { registerAutoConfirm } from "../src/server/jobs/auto-confirm-job";
+import { registerRetention } from "../src/server/jobs/retention-job";
 import { registerNotificationDispatch } from "../src/server/jobs/notification-dispatch-job";
 import { registerSlaScan } from "../src/server/jobs/sla-scan-job";
 
@@ -32,6 +33,15 @@ async function main() {
       if (result.confirmed > 0) console.log(`Auto-confirmed ${result.confirmed} resolved report(s)`);
     },
   });
+  await registerRetention(boss, {
+    db,
+    clock: systemClock,
+    onRun: (result) => {
+      // Counts only, never the deleted data.
+      const total = Object.values(result).reduce((sum, n) => sum + n, 0);
+      if (total > 0) console.log(`Retention removed ${total} old record(s)`);
+    },
+  });
   const sms = createSmsSender(parseSmsEnv(process.env));
   await registerNotificationDispatch(boss, {
     db,
@@ -48,7 +58,7 @@ async function main() {
       }
     },
   });
-  console.log(`Worker started: SLA scan and notification dispatch run every minute, auto-confirm hourly${sms ? "" : " (SMS disabled)"}.`);
+  console.log(`Worker started: SLA scan and notification dispatch run every minute, auto-confirm hourly, retention daily${sms ? "" : " (SMS disabled)"}.`);
 
   const shutdown = async () => {
     await boss.stop();
