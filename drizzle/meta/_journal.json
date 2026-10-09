@@ -78,6 +78,13 @@
       "when": 1791534326494,
       "tag": "0010_user-deactivation",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791535477377,
+      "tag": "0011_jurisdiction-identity",
+      "breakpoints": true
     }
   ]
 }

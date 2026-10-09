@@ -35,6 +35,16 @@ export const jurisdictions = pgTable(
   (table) => [
     index("jurisdictions_geom_gist").using("gist", table.geom),
     index("jurisdictions_parent_idx").on(table.parentId),
+    // A place is identified by its level, its name (ignoring capital letters) and its parent.
+    // This lets the boundary importer run again safely: a second run finds the same place and
+    // updates its shape instead of creating a duplicate. `coalesce` turns "no parent" (null) into
+    // a fixed value, because the database treats two nulls as different and would otherwise let
+    // two states with the same name through.
+    uniqueIndex("jurisdictions_identity_unique").on(
+      table.level,
+      sql`lower(${table.name})`,
+      sql`coalesce(${table.parentId}, '00000000-0000-0000-0000-000000000000'::uuid)`,
+    ),
   ],
 );
 

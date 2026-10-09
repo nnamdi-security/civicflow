@@ -15,4 +15,4 @@ Status lives only in this file.
 ## Blocking decisions
 - SLA values and escalation ladder, and the 14-day auto-confirm period (placeholders in use for Phase 5, see ADR 0010; real values still needed)
 - Deployment target
-- Real state/LGA boundary data source (needed for Phase 4 routing)
+- Real state/LGA boundary data source (the importer exists, see docs/routing.md; the data itself and its licence are still needed)

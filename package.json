@@ -19,6 +19,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx scripts/seed-dev.ts",
+    "boundaries:import": "tsx scripts/import-boundaries.ts",
     "admin:create": "tsx scripts/create-admin.ts",
     "worker": "tsx scripts/worker.ts",
     "dev:last-email": "tsx scripts/last-email.ts",

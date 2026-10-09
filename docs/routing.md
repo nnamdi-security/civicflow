@@ -16,6 +16,17 @@ Every reassignment creates an Assignment record and a StatusEvent, and returns t
 ## Boundary reports
 A point covered by two sibling jurisdictions resolves to the lowest jurisdiction id; the assignment reason notes the boundary case (ADR 0009).
 
+## Importing real boundaries
+Routing is only as good as the boundary shapes in the database. Until real ones are loaded it runs on the sample rectangles from `pnpm db:seed`. Load real boundaries from a GeoJSON file with:
+
+```
+pnpm boundaries:import <file.geojson> --level state|lga --name-field <property> [--parent-field <property>] [--dry-run] [--yes]
+```
+
+Do it in two passes, states first and then LGAs, and always run `--dry-run` first. The importer checks the file (shapes are Polygon or MultiPolygon, longitude/latitude order, closed rings, inside Nigeria, named, no duplicates), repairs small geometry defects with PostGIS, finds each LGA's state by the name in `--parent-field` or, if that is left out, by location, and saves everything in one transaction. **If anything is wrong, nothing is saved.** It never deletes places, reports or agency coverage, and a second run updates the same places instead of duplicating them (a place is identified by its level, its name ignoring capital letters, and its parent). In production the real run needs `--yes`.
+
+After importing, check each agency's coverage in `/admin/agencies` (coverage rows point at places, so existing ones keep working), and re-check routing for a few known addresses. Which data source to use (and its licence) is still to be decided; the importer works with any GeoJSON that has a name property.
+
 ## Open questions
 - Duplicate detection (same category within N metres): deferred past Phase 4.
-- Real state/LGA boundaries: routing is only verified against sample polygons.
+- Real state/LGA boundaries: the importer is built and tested, but no real data has been loaded yet, so routing is only verified against sample and test polygons.

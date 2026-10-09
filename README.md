@@ -14,6 +14,7 @@ export DATABASE_URL=postgres://civicflow:civicflow_dev_only@localhost:5433/civic
 export TEST_DATABASE_URL=postgres://civicflow:civicflow_dev_only@localhost:5433/civicflow_test
 pnpm db:migrate
 pnpm db:seed        # optional: sample jurisdictions and agency (not real boundaries)
+pnpm boundaries:import <file> --level state|lga --name-field <prop> --dry-run   # load real boundaries; see docs/routing.md
 pnpm dev            # http://localhost:3000, health check at /api/health
 pnpm worker         # separate process: SLA escalation scan and notification dispatch every minute, auto-confirm hourly (needs DATABASE_URL)
 ```
